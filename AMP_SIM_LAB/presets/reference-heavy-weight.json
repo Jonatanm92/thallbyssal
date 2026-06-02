@@ -1,0 +1,32 @@
+{
+  "preset_id": "reference-heavy-weight",
+  "name": "Reference Heavy Weight",
+  "category": "rhythm",
+  "gain_level": "extreme",
+  "genre_tags": ["private-reference", "low-tuned", "heavy", "wide-weight"],
+  "pickup_recommendation": "bridge humbucker",
+  "input_gain": 0,
+  "output_gain": -9,
+  "amp_section_settings": {
+    "gain": 10.4,
+    "bass": 34,
+    "mid": 50,
+    "treble": 64,
+    "presence": 60,
+    "master": 82
+  },
+  "cab_or_ir_reference": "factory-mellow-cab",
+  "effects_settings": {
+    "gate": "tight",
+    "grinder": "high",
+    "low_octave": 10
+  },
+  "cpu_cost_estimate": "medium",
+  "loudness_target": {
+    "peak_dbfs_max": -1,
+    "rms_dbfs_range": [-25, -12]
+  },
+  "author": "Founder",
+  "version": "0.1.0",
+  "notes": "Internal private reference candidate for heavier low-tuned weight with controlled low end and optional low-octave support. Not approved for public release."
+}

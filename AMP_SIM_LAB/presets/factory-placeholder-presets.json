@@ -1,0 +1,196 @@
+[
+  {
+    "preset_id": "abyssal-tight-rhythm",
+    "name": "Abyssal Tight Rhythm",
+    "category": "rhythm",
+    "gain_level": "high",
+    "genre_tags": ["low-tuned", "modern-metal", "tight-rhythm"],
+    "pickup_recommendation": "bridge humbucker",
+    "input_gain": 0,
+    "output_gain": -5,
+    "amp_section_settings": {
+      "gain": 8,
+      "bass": 34,
+      "mid": 58,
+      "treble": 68,
+      "presence": 66,
+      "master": 74
+    },
+    "cab_or_ir_reference": "factory-mellow-cab",
+    "effects_settings": {
+      "gate": "tight",
+      "grinder": "medium",
+      "low_octave": 0
+    },
+    "cpu_cost_estimate": "medium",
+    "loudness_target": {
+      "peak_dbfs_max": -1,
+      "rms_dbfs_range": [-24, -10]
+    },
+    "author": "Founder",
+    "version": "0.1.0",
+    "notes": "Internal placeholder for tight low-tuned rhythm validation. Not approved for public release."
+  },
+  {
+    "preset_id": "subweight-breakdown",
+    "name": "Subweight Breakdown",
+    "category": "rhythm",
+    "gain_level": "extreme",
+    "genre_tags": ["low-tuned", "breakdown", "modern-metal"],
+    "pickup_recommendation": "bridge humbucker",
+    "input_gain": 0,
+    "output_gain": -6,
+    "amp_section_settings": {
+      "gain": 10,
+      "bass": 28,
+      "mid": 62,
+      "treble": 62,
+      "presence": 58,
+      "master": 78
+    },
+    "cab_or_ir_reference": "factory-mellow-cab",
+    "effects_settings": {
+      "gate": "fast",
+      "grinder": "high",
+      "low_octave": 12
+    },
+    "cpu_cost_estimate": "medium",
+    "loudness_target": {
+      "peak_dbfs_max": -1,
+      "rms_dbfs_range": [-24, -10]
+    },
+    "author": "Founder",
+    "version": "0.1.0",
+    "notes": "Internal placeholder for heavy breakdown validation. Not approved for public release."
+  },
+  {
+    "preset_id": "glass-attack-lead",
+    "name": "Glass Attack Lead",
+    "category": "lead",
+    "gain_level": "high",
+    "genre_tags": ["lead", "sustain", "pick-attack"],
+    "pickup_recommendation": "bridge or neck humbucker",
+    "input_gain": 0,
+    "output_gain": -5,
+    "amp_section_settings": {
+      "gain": 8.5,
+      "bass": 30,
+      "mid": 64,
+      "treble": 76,
+      "presence": 72,
+      "master": 70
+    },
+    "cab_or_ir_reference": "factory-mellow-cab",
+    "effects_settings": {
+      "gate": "medium",
+      "grinder": "medium",
+      "space": "small"
+    },
+    "cpu_cost_estimate": "medium",
+    "loudness_target": {
+      "peak_dbfs_max": -1,
+      "rms_dbfs_range": [-26, -12]
+    },
+    "author": "Founder",
+    "version": "0.1.0",
+    "notes": "Internal placeholder for lead sustain and pick attack validation. Not approved for public release."
+  },
+  {
+    "preset_id": "void-clean-bloom",
+    "name": "Void Clean Bloom",
+    "category": "clean",
+    "gain_level": "clean",
+    "genre_tags": ["clean", "ambient", "wide"],
+    "pickup_recommendation": "neck pickup or split coil",
+    "input_gain": 0,
+    "output_gain": -8,
+    "amp_section_settings": {
+      "gain": 2,
+      "bass": 48,
+      "mid": 44,
+      "treble": 62,
+      "presence": 58,
+      "master": 58
+    },
+    "cab_or_ir_reference": "factory-mellow-cab",
+    "effects_settings": {
+      "clean_space": 78,
+      "shimmer": 30,
+      "reverse": 0,
+      "stutter": 0
+    },
+    "cpu_cost_estimate": "medium",
+    "loudness_target": {
+      "peak_dbfs_max": -1,
+      "rms_dbfs_range": [-30, -14]
+    },
+    "author": "Founder",
+    "version": "0.1.0",
+    "notes": "Internal placeholder for clean ambient validation. Not approved for public release."
+  },
+  {
+    "preset_id": "reverse-abyss-transition",
+    "name": "Reverse Abyss Transition",
+    "category": "fx",
+    "gain_level": "clean",
+    "genre_tags": ["fx", "reverse", "transition"],
+    "pickup_recommendation": "any clean DI",
+    "input_gain": 0,
+    "output_gain": -9,
+    "amp_section_settings": {
+      "gain": 2,
+      "bass": 42,
+      "mid": 46,
+      "treble": 64,
+      "presence": 52,
+      "master": 56
+    },
+    "cab_or_ir_reference": "factory-mellow-cab",
+    "effects_settings": {
+      "reverse": 65,
+      "shimmer": 22,
+      "stutter": 18,
+      "ring": 0
+    },
+    "cpu_cost_estimate": "high",
+    "loudness_target": {
+      "peak_dbfs_max": -1,
+      "rms_dbfs_range": [-32, -14]
+    },
+    "author": "Founder",
+    "version": "0.1.0",
+    "notes": "Internal placeholder for FX transition validation. Not approved for public release."
+  },
+  {
+    "preset_id": "noise-floor-utility",
+    "name": "Noise Floor Utility",
+    "category": "utility",
+    "gain_level": "clean",
+    "genre_tags": ["utility", "gate", "noise-floor"],
+    "pickup_recommendation": "any DI",
+    "input_gain": 0,
+    "output_gain": -12,
+    "amp_section_settings": {
+      "gain": 1,
+      "bass": 50,
+      "mid": 50,
+      "treble": 50,
+      "presence": 50,
+      "master": 50
+    },
+    "cab_or_ir_reference": "factory-mellow-cab",
+    "effects_settings": {
+      "gate": "diagnostic",
+      "grinder": "off"
+    },
+    "cpu_cost_estimate": "low",
+    "loudness_target": {
+      "peak_dbfs_max": -1,
+      "rms_dbfs_range": [-96, -24]
+    },
+    "author": "Founder",
+    "version": "0.1.0",
+    "notes": "Internal utility preset for gate and noise floor validation. Not approved for public release."
+  }
+]
+

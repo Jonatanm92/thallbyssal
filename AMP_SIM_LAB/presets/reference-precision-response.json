@@ -1,0 +1,32 @@
+{
+  "preset_id": "reference-precision-response",
+  "name": "Reference Precision Response",
+  "category": "rhythm",
+  "gain_level": "high",
+  "genre_tags": ["private-reference", "low-tuned", "fast-response", "pick-attack"],
+  "pickup_recommendation": "bridge humbucker",
+  "input_gain": 1,
+  "output_gain": -8,
+  "amp_section_settings": {
+    "gain": 7.4,
+    "bass": 22,
+    "mid": 62,
+    "treble": 74,
+    "presence": 72,
+    "master": 72
+  },
+  "cab_or_ir_reference": "factory-mellow-cab",
+  "effects_settings": {
+    "gate": "fast",
+    "grinder": "high",
+    "low_octave": 0
+  },
+  "cpu_cost_estimate": "medium",
+  "loudness_target": {
+    "peak_dbfs_max": -1,
+    "rms_dbfs_range": [-25, -13]
+  },
+  "author": "Founder",
+  "version": "0.1.0",
+  "notes": "Internal private reference candidate for sharper tracking, faster transient response, and clearer pick attack. Not approved for public release."
+}

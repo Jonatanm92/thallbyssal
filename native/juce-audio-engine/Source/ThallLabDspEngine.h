@@ -1,0 +1,170 @@
+#pragma once
+
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_core/juce_core.h>
+#include <juce_dsp/juce_dsp.h>
+
+class ThallLabDspEngine
+{
+public:
+    struct Parameters
+    {
+        float inputGainDb = 0.0f;
+        float transposeSemitones = 0.0f;
+        float octaveLayerBlend = 0.0f;
+        float palmMuteAmount = 62.0f;
+        float palmMuteFocusHz = 720.0f;
+        float gateThresholdDb = -58.0f;
+        float gateReleaseMs = 48.0f;
+        float grinderAmount = 72.0f;
+        float diCurve = 72.0f;
+        float diAmount = 0.0f;
+        float diSmooth = 48.0f;
+        float ampDrive = 8.4f;
+        float ampBass = 26.0f;
+        float ampMid = 62.0f;
+        float ampTreble = 72.0f;
+        float ampPresence = 68.0f;
+        float ampMaster = 70.0f;
+        float ampOutputDb = 0.0f;
+        float cabBlend = 0.0f;
+        float cabLowCutHz = 20.0f;
+        float cabHighCutHz = 20000.0f;
+        float cabResonance = 28.0f;
+        float cabLevel = 0.0f;
+        bool cabSectionEnabled = true;
+        bool cabIrEnabled = true;
+        float cleanBlend = 0.0f;
+        float cleanSpace = 58.0f;
+        float cleanBass = 48.0f;
+        float cleanMid = 44.0f;
+        float cleanTreble = 62.0f;
+        float cleanPresence = 58.0f;
+        float cleanTone = 58.0f;
+        float cleanLevel = 0.0f;
+        float cleanDelayMix = 18.0f;
+        float cleanDelayTimeMs = 380.0f;
+        float cleanDelayFeedback = 28.0f;
+        float cleanReverbMix = 34.0f;
+        float cleanReverbDecay = 58.0f;
+        float ambientBlend = 0.0f;
+        float ambientSize = 58.0f;
+        float ambientFeedback = 34.0f;
+        float ambientGrain = 38.0f;
+        float ambientPitch = 0.0f;
+        float ambientTone = 62.0f;
+        float ambientShimmer = 22.0f;
+        float ambientReverse = 0.0f;
+        float ambientStutter = 0.0f;
+        float ambientRing = 0.0f;
+        float outputGainDb = 0.0f;
+        bool stereoOutput = true;
+        bool ampEnabled = true;
+        bool gateEnabled = true;
+        bool grinderEnabled = true;
+        bool ambientEnabled = false;
+    };
+
+    void prepare(double newSampleRate, int maxBlockSize);
+    void reset();
+    void setParameters(const Parameters& newParameters);
+    bool loadCabIrFile(const juce::File& file);
+    bool loadCabIrFile(const juce::File& file, int slot);
+    void clearCabIr();
+    void clearCabIr(int slot);
+    void process(const float* input, float* left, float* right, int numSamples);
+    float getInputPeak() const;
+    float getDiPeak() const;
+    float getAmpPeak() const;
+    float getOutputPeak() const;
+    float getGateGain() const;
+    bool hasCabIr() const;
+    bool hasCabIr(int slot) const;
+
+private:
+    float processAmp(float sample);
+    float processTranspose(float sample);
+    float renderPitchShift(float semitones, float& phase);
+    float readTransposeDelay(float delaySamples) const;
+    float processPalmMuteCatcher(float sample);
+    float processNoiseGate(float sample);
+    float processGrinder(float sample);
+    float processDiSculpt(float sample);
+    float processCabFilter(float sample);
+    float processCleanSpace(float input, float amped);
+    float processAmbient(float input, float amped);
+    void processCabIrMix(int samplesToProcess);
+    void prepareCabConvolution(juce::dsp::Convolution& convolution);
+    void normaliseCabIrBuffer(juce::AudioBuffer<float>& buffer);
+
+    Parameters parameters;
+    double sampleRate = 48000.0;
+    int maximumBlockSize = 0;
+    juce::AudioBuffer<float> diBuffer;
+    juce::AudioBuffer<float> ampBuffer;
+    juce::AudioBuffer<float> cabBufferA;
+    juce::AudioBuffer<float> cabBufferB;
+    juce::AudioBuffer<float> cabMixBuffer;
+    juce::AudioBuffer<float> transposeDelayBuffer;
+    juce::dsp::Convolution cabConvolutionA;
+    juce::dsp::Convolution cabConvolutionB;
+    bool cabIrALoaded = false;
+    bool cabIrBLoaded = false;
+    float lastInputPeak = 0.0f;
+    float lastDiPeak = 0.0f;
+    float lastAmpPeak = 0.0f;
+    float lastOutputPeak = 0.0f;
+    float ampLowpassState = 0.0f;
+    int transposeWritePosition = 0;
+    float transposePhase = 0.0f;
+    float octaveLayerPhase = 0.5f;
+    float transposeTransientState = 0.0f;
+    float palmMuteLowState = 0.0f;
+    float palmMuteEnvelope = 0.0f;
+    float palmMuteHighpassState = 0.0f;
+    float palmMuteHighpassInputState = 0.0f;
+    float ampHighpassState = 0.0f;
+    float ampHighpassInputState = 0.0f;
+    float diHighpassState = 0.0f;
+    float diHighpassInputState = 0.0f;
+    float diLowState = 0.0f;
+    float diBiteState = 0.0f;
+    float gateEnvelope = 0.0f;
+    float gateGain = 0.0f;
+    float grinderHighpassState = 0.0f;
+    float grinderHighpassInputState = 0.0f;
+    float grinderLowState = 0.0f;
+    float grinderToneState = 0.0f;
+    float cabHighpassState = 0.0f;
+    float cabHighpassInputState = 0.0f;
+    float cabLowpassState = 0.0f;
+    float cabResonanceState = 0.0f;
+    float ampBodyState = 0.0f;
+    float ampMidState = 0.0f;
+    float ampTrebleState = 0.0f;
+    float ampPresenceState = 0.0f;
+    float ampCompressorEnvelope = 0.0f;
+    juce::AudioBuffer<float> cleanDelayBuffer;
+    juce::AudioBuffer<float> cleanEchoBuffer;
+    juce::AudioBuffer<float> cleanReverbBuffer;
+    int cleanDelayWritePosition = 0;
+    int cleanEchoWritePosition = 0;
+    int cleanReverbWritePosition = 0;
+    float cleanToneState = 0.0f;
+    float cleanFeedbackState = 0.0f;
+    float cleanLowState = 0.0f;
+    float cleanMidState = 0.0f;
+    float cleanPresenceState = 0.0f;
+    float cleanReverbDampState = 0.0f;
+    juce::AudioBuffer<float> ambientDelayBuffer;
+    int ambientDelayWritePosition = 0;
+    float ambientFeedbackState = 0.0f;
+    float ambientShimmerState = 0.0f;
+    float ambientReverseState = 0.0f;
+    float ambientToneState = 0.0f;
+    float ambientGrainPhase = 0.0f;
+    float ambientStutterPhase = 0.0f;
+    float ambientRingPhase = 0.0f;
+    float outputStereoState = 0.0f;
+};
