@@ -73,6 +73,8 @@ test("baseline comparison reports only render status and technical metric snapsh
       {
         jobId: "high-gain-foundation-01",
         status: "rendered",
+        mode: "real",
+        renderHookStatus: "real-render",
         processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\baseline\\processed.wav",
         metrics: {
           peakDbfs: -1.5,
@@ -89,6 +91,8 @@ test("baseline comparison reports only render status and technical metric snapsh
       {
         jobId: "high-gain-foundation-01",
         status: "failed",
+        mode: "real",
+        renderHookStatus: "real-render",
         processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\current\\processed.wav",
         metrics: {
           peakDbfs: -1,
@@ -105,6 +109,14 @@ test("baseline comparison reports only render status and technical metric snapsh
   assert.equal(report.summary.comparedJobs, 1);
   assert.equal(Object.hasOwn(report.summary, "toneJudgement"), false);
   assert.deepEqual(report.metricFields, ["peakDbfs", "rmsDbfs", "lufsEstimate", "clippedSamples"]);
+  assert.deepEqual(report.statusFields, ["renderStatus", "renderSuccess", "renderHookStatus", "renderMode", "processedWavPresent", "missingRenderOutput"]);
+  assert.equal(report.summary.renderSuccessChanges, 1);
+  assert.equal(report.summary.dryRunRealRenderChanges, 0);
+  assert.equal(report.summary.missingRenderOutputChanges, 0);
+  assert.equal(report.comparisons[0].current.renderHookStatus, "real-render");
+  assert.equal(report.comparisons[0].current.renderMode, "real");
+  assert.equal(report.comparisons[0].current.processedWavPresent, true);
+  assert.equal(report.comparisons[0].current.missingRenderOutput, false);
   assert.deepEqual(report.comparisons[0].baseline.metrics, {
     peakDbfs: -1.5,
     rmsDbfs: -18.25,
@@ -133,6 +145,8 @@ test("baseline create report lists render status, file references, and metrics o
       {
         jobId: "high-gain-foundation-01",
         status: "rendered",
+        mode: "real",
+        renderHookStatus: "real-render",
         inputPath: "D:\\CodexBuilds\\thallbyssal-lab\\di-test-files\\LOW TUNED CHUGS.wav",
         presetPath: "C:\\repo\\AMP_SIM_LAB\\presets\\examples\\high_gain_foundation_01.json",
         processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\baseline\\processed.wav",
@@ -155,7 +169,14 @@ test("baseline create report lists render status, file references, and metrics o
   assert.deepEqual(report.metricFields, ["peakDbfs", "rmsDbfs", "lufsEstimate", "clippedSamples"]);
   assert.equal(Object.hasOwn(report.summary, "toneJudgement"), false);
   assert.equal(report.summary.jobs, 1);
+  assert.equal(report.summary.realRenderJobs, 1);
+  assert.equal(report.summary.dryRuns, 0);
+  assert.equal(report.summary.missingRenderOutputs, 0);
   assert.equal(report.jobs[0].renderSuccess, true);
+  assert.equal(report.jobs[0].renderHookStatus, "real-render");
+  assert.equal(report.jobs[0].renderMode, "real");
+  assert.equal(report.jobs[0].processedWavPresent, true);
+  assert.equal(report.jobs[0].missingRenderOutput, false);
   assert.deepEqual(report.jobs[0].metrics, {
     peakDbfs: -1.5,
     rmsDbfs: -18.25,
@@ -168,6 +189,54 @@ test("baseline create report lists render status, file references, and metrics o
     processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\baseline\\processed.wav",
     outputDirectory: null
   });
+});
+
+test("baseline reports dry-run status and missing real-render outputs objectively", () => {
+  const current = {
+    generatedAt: "2026-06-01T11:00:00.000Z",
+    results: [
+      {
+        jobId: "real-render-missing-output",
+        status: "failed",
+        mode: "real",
+        renderHookStatus: "real-render",
+        processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\missing\\processed.wav",
+        metrics: null
+      },
+      {
+        jobId: "dry-run",
+        status: "dry_run",
+        mode: "dry-run",
+        renderHookStatus: "dry-run",
+        processedWavPath: null,
+        metrics: null
+      }
+    ]
+  };
+  const outputExistsByPath = new Map([
+    ["D:\\CodexBuilds\\thallbyssal-lab\\renders\\missing\\processed.wav", false]
+  ]);
+
+  const report = baselineReports.createBaselineSnapshotReport(
+    current,
+    "D:\\CodexBuilds\\thallbyssal-lab\\baselines\\baseline.json",
+    { outputExistsByPath }
+  );
+
+  assert.equal(report.summary.failed, 1);
+  assert.equal(report.summary.dryRuns, 1);
+  assert.equal(report.summary.realRenderJobs, 1);
+  assert.equal(report.summary.missingRenderOutputs, 1);
+  assert.deepEqual(report.jobs[0].metrics, {
+    peakDbfs: null,
+    rmsDbfs: null,
+    lufsEstimate: null,
+    clippedSamples: null
+  });
+  assert.equal(report.jobs[0].processedWavPresent, false);
+  assert.equal(report.jobs[0].missingRenderOutput, true);
+  assert.equal(report.jobs[1].renderHookStatus, "dry-run");
+  assert.equal(report.jobs[1].missingRenderOutput, false);
 });
 
 test("blocks real render when no safe headless entrypoint exists", () => {
