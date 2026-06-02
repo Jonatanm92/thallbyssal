@@ -5,14 +5,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as baselineReports from "./baseline.mjs";
 import { createRenderPlan, detectSafeRenderPath, isInsideDirectory } from "./render-adapter.mjs";
-import { validateRenderResultsReport } from "./render-safety.mjs";
+import { validateBranchSafety, validateRenderResultsReport } from "./render-safety.mjs";
 
 const renderRoot = "D:\\CodexBuilds\\thallbyssal-lab\\renders";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
-function signature(sha256, sizeBytes = 1024) {
-  return { sha256, sizeBytes, modifiedMs: 1 };
+function signature(sha256, sizeBytes = 1024, modifiedMs = 1) {
+  return { sha256, sizeBytes, modifiedMs };
 }
 
 function dspSignatures(sha256 = "dsp-a") {
@@ -31,9 +31,22 @@ function safeRenderResult(overrides = {}) {
   return {
     jobId: "job",
     inputPath: "D:\\CodexBuilds\\thallbyssal-lab\\di-test-files\\input.wav",
+    status: "rendered",
+    renderHookStatus: "real-render",
+    renderPath: {
+      available: true,
+      kind: "local-headless-command",
+      command: "C:\\repo\\native\\juce-audio-engine\\scripts\\render-offline.ps1"
+    },
     outputDirectory,
     processedWavPath: path.join(outputDirectory, "processed.wav"),
     messages: [],
+    nativeRender: {
+      exitCode: 0,
+      stdout: "",
+      stderr: "",
+      error: null
+    },
     safety: {
       inputBefore: signature("input-a"),
       inputAfter: signature("input-a"),
@@ -235,9 +248,27 @@ test("render safety report validator rejects missing or changed DI and DSP safet
   );
 
   assert.match(validation.errors.join("\n"), /escapes approved render roots/);
-  assert.match(validation.errors.join("\n"), /Input DI hash\/size changed/);
+  assert.match(validation.errors.join("\n"), /Input DI hash\/size\/mtime changed/);
   assert.match(validation.errors.join("\n"), /GUI automation flag is not false/);
-  assert.match(validation.errors.join("\n"), /DSP\/core hash changed/);
+  assert.match(validation.errors.join("\n"), /DSP\/core hash\/size\/mtime changed/);
+});
+
+test("render safety report validator rejects touched DI mtimes even when bytes match", () => {
+  const validation = validateRenderResultsReport(
+    {
+      results: [
+        safeRenderResult({
+          safety: {
+            ...safeRenderResult().safety,
+            inputAfter: signature("input-a", 1024, 2)
+          }
+        })
+      ]
+    },
+    { approvedRoots: [renderRoot] }
+  );
+
+  assert.match(validation.errors.join("\n"), /Input DI hash\/size\/mtime changed/);
 });
 
 test("render safety report validator rejects byte-identical processed output", () => {
@@ -256,6 +287,66 @@ test("render safety report validator rejects byte-identical processed output", (
   );
 
   assert.match(validation.errors.join("\n"), /possible fake/);
+});
+
+test("render safety report validator rejects processed output without approved renderer provenance", () => {
+  const validation = validateRenderResultsReport(
+    {
+      results: [
+        safeRenderResult({
+          renderPath: {
+            available: false,
+            kind: "missing",
+            command: null
+          },
+          nativeRender: {
+            exitCode: 1,
+            stdout: "",
+            stderr: "",
+            error: null
+          }
+        })
+      ]
+    },
+    { approvedRoots: [renderRoot] }
+  );
+
+  assert.match(validation.errors.join("\n"), /approved local headless renderer provenance/);
+  assert.match(validation.errors.join("\n"), /successful native renderer exit code/);
+});
+
+test("branch safety validator rejects DSP, DI asset, GUI automation, fake render, and public systems", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "native/juce-audio-engine/Source/PluginProcessor.cpp", source: "branch" },
+      { status: "M", path: "AMP_SIM_LAB/di-test-files/LOW TUNED CHUGS.wav", source: "branch" },
+      { status: "A", path: "AMP_SIM_LAB/test-harness/render-hook/new-render.mjs", source: "branch" }
+    ],
+    fileTexts: new Map([
+      [
+        "AMP_SIM_LAB/test-harness/render-hook/new-render.mjs",
+        "import playwright from 'playwright'; fs.copyFileSync(input, output); const telemetry = true;"
+      ]
+    ])
+  });
+
+  const messages = validation.errors.join("\n");
+  assert.match(messages, /Protected DSP\/core file/);
+  assert.match(messages, /Original DI\/audio\/user asset/);
+  assert.match(messages, /GUI automation indicator/);
+  assert.match(messages, /Fake render\/copy indicator/);
+  assert.match(messages, /Public release\/checkout\/licensing\/auth\/telemetry indicator/);
+});
+
+test("branch safety validator allows validator self-check source terms", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "AMP_SIM_LAB/test-harness/render-hook/render-safety.mjs", source: "branch" }
+    ],
+    fileTexts: new Map()
+  });
+
+  assert.deepEqual(validation.errors, []);
 });
 
 test("offline renderer records and validates the actual heavy signal chain", () => {

@@ -236,6 +236,7 @@ export async function renderWithAdapter(options) {
     presetPath: plan.presetPath,
     presetId: plan.presetId,
     jobId: plan.jobId,
+    renderPath: plan.renderPath,
     outputDirectory: plan.outputDirectory,
     processedWavPath: plan.status === "pending" ? plan.processedWavPath : null,
     metricsPath: plan.status === "pending" ? plan.metricsPath : null,
