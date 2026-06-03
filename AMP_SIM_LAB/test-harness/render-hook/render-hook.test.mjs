@@ -418,6 +418,25 @@ test("branch safety validator allows validator self-check source terms", () => {
   assert.deepEqual(validation.errors, []);
 });
 
+test("branch safety validator allows lab guardrail policy terms but still rejects GUI and fake render indicators", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "AMP_SIM_LAB/test-harness/beta-readiness.mjs", source: "branch" }
+    ],
+    fileTexts: new Map([
+      [
+        "AMP_SIM_LAB/test-harness/beta-readiness.mjs",
+        "const boundary = 'No checkout, licensing server, telemetry, analytics, cloud sync, DRM, auth, or public release.';\nimport playwright from 'playwright';\nfs.copyFileSync(input, output);"
+      ]
+    ])
+  });
+
+  const messages = validation.errors.join("\n");
+  assert.doesNotMatch(messages, /Public release\/checkout\/licensing\/auth\/telemetry indicator/);
+  assert.match(messages, /GUI automation indicator/);
+  assert.match(messages, /Fake render\/copy indicator/);
+});
+
 test("offline renderer records and validates the actual heavy signal chain", () => {
   const source = fs.readFileSync(path.join(repoRoot, "native", "juce-audio-engine", "Source", "OfflineRendererMain.cpp"), "utf8");
 
