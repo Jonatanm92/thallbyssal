@@ -7,6 +7,7 @@ const tests = [
   "audition-matrix.test.mjs",
   "beta-readiness.test.mjs",
   "demo-audition-page.test.mjs",
+  "demo-clip-pack.test.mjs",
   "di-validation.test.mjs",
   "founder-assets.test.mjs",
   "ir-reference-audition.test.mjs",
