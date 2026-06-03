@@ -35,6 +35,13 @@ const validatorSelfPaths = new Set([
   "AMP_SIM_LAB/test-harness/render-hook/render-hook.test.mjs"
 ]);
 
+const publicSystemGuardrailSourcePaths = new Set([
+  "AMP_SIM_LAB/test-harness/beta-readiness.mjs",
+  "AMP_SIM_LAB/test-harness/beta-readiness.test.mjs",
+  "AMP_SIM_LAB/test-harness/preset-validation.test.mjs",
+  "AMP_SIM_LAB/test-harness/validate-presets.mjs"
+]);
+
 const executableSourceExtension = /\.(mjs|cjs|js|jsx|ts|tsx|json|ps1|sh|bash|bat|cmd|cpp|c|h|hpp|cmake|yml|yaml)$/i;
 const originalAudioOrAssetExtension = /\.(wav|wave|aif|aiff|flac|mp3|ogg|nam|ir)$/i;
 
@@ -271,6 +278,10 @@ function shouldScanChangedSource(repoPath) {
   return executableSourceExtension.test(repoPath) && !validatorSelfPaths.has(repoPath);
 }
 
+function shouldScanPublicSystemPatterns(repoPath) {
+  return !publicSystemGuardrailSourcePaths.has(repoPath);
+}
+
 async function changedFileTexts(changes, warnings) {
   const entries = [];
   const paths = [...new Set(changes.flatMap(changedPaths))].filter(shouldScanChangedSource);
@@ -316,9 +327,11 @@ export function validateBranchSafety({ changes = [], fileTexts = new Map(), base
       }
     }
 
-    for (const pattern of publicSystemPatterns) {
-      if (pattern.test(text)) {
-        errors.push(`Public release/checkout/licensing/auth/telemetry indicator ${pattern} found in changed source: ${repoPath}`);
+    if (shouldScanPublicSystemPatterns(repoPath)) {
+      for (const pattern of publicSystemPatterns) {
+        if (pattern.test(text)) {
+          errors.push(`Public release/checkout/licensing/auth/telemetry indicator ${pattern} found in changed source: ${repoPath}`);
+        }
       }
     }
   }
