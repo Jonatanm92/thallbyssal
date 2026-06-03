@@ -7,6 +7,7 @@ const reportIndexPath = path.join(reportsDir, "index.html");
 const reportLinks = [
   ["Audio Metrics", "audio-metrics.html", "Peak, RMS, clipping, sample rate, and file format checks for founder-owned DI files."],
   ["DI Validation", "di-validation.html", "Starter DI readiness, missing files, clipping, noise floor, and naming recommendations."],
+  ["Input Match", "input-match.html", "Report-only DI calibration guidance for input level, clipping, noise, gain range, and gate starting point."],
   ["Audition Matrix", "audition-matrix.html", "Planned DI/preset render jobs for future offline audition rendering."],
   ["Demo Audition", "demo-audition.html", "Internal-only dry-run and local render clip viewer for audition jobs."],
   ["Render Results", "render-results.html", "Dry-run or real-render hook output, processed WAV locations, and render metrics."],

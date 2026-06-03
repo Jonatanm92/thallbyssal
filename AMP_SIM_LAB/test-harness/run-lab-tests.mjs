@@ -9,6 +9,7 @@ const tests = [
   "demo-audition-page.test.mjs",
   "di-validation.test.mjs",
   "founder-assets.test.mjs",
+  path.join("input-match", "input-match.test.mjs"),
   "ir-reference-audition.test.mjs",
   "preset-validation.test.mjs",
   "reference-feedback-plan.test.mjs",

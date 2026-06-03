@@ -12,6 +12,7 @@ npm run lab:test
 npm run lab:metrics
 npm run lab:di
 npm run lab:di:strict
+node AMP_SIM_LAB/test-harness/input-match/run-input-match.mjs
 npm run lab:founder-assets
 npm run lab:audition
 npm run lab:audition:strict
@@ -55,6 +56,8 @@ D:\CodexBuilds\thallbyssal-lab\reports\audio-metrics.json
 D:\CodexBuilds\thallbyssal-lab\reports\audio-metrics.html
 D:\CodexBuilds\thallbyssal-lab\reports\di-validation.json
 D:\CodexBuilds\thallbyssal-lab\reports\di-validation.html
+D:\CodexBuilds\thallbyssal-lab\reports\input-match.json
+D:\CodexBuilds\thallbyssal-lab\reports\input-match.html
 D:\CodexBuilds\thallbyssal-lab\reports\founder-assets.json
 D:\CodexBuilds\thallbyssal-lab\reports\founder-assets.html
 D:\CodexBuilds\thallbyssal-lab\reports\audition-matrix.json
@@ -76,6 +79,8 @@ D:\CodexBuilds\thallbyssal-lab\listening-packs\ir-reference-auditions\...\auditi
 Override the generated output root with `AMP_SIM_LAB_OUTPUT_DIR`.
 
 `lab:di` validates the current starter DI set without failing the full lab run. `lab:di:strict` exits non-zero when the starter DI set is not ready.
+
+`input-match/run-input-match.mjs` creates a report-only Input Match / DI Calibration prototype from the current audio metrics report. It suggests input gain and gate starting points for founder review only; it does not modify DI files, presets, DSP/core sound, gain, or gate behavior.
 
 `lab:founder-assets` scans private IR, NAM, preset-reference, screenshot, and note folders. It never approves shipping, bundling, or automatically loading those files in product code.
 
