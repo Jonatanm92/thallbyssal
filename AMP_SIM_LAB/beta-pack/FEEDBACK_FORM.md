@@ -1,6 +1,6 @@
 # Thallbyssal Beta Feedback Form
 
-Use this form for private beta feedback only. Do not include personal data, account IDs, license keys, private project names, client/session files, unreleased music, proprietary IRs, or other private assets unless you intentionally choose to share them.
+Use this form for private beta feedback only. There is no public release yet. Do not include personal data, account IDs, license keys, private project names, client/session files, unreleased music, proprietary IRs, or other private assets unless you intentionally choose to share them. No private data is collected beyond what the founder manually asks for later through private channels.
 
 ## DAW/OS Feedback Form
 
@@ -23,6 +23,8 @@ CPU behavior during normal playing:
 Notes:
 ```
 
+Do not include serial numbers, account IDs, license keys, personal contact details, private project names, or client/session data.
+
 ## Plugin Scan
 
 ```text
@@ -31,6 +33,8 @@ Did standalone launch, if provided:
 Any crash, hang, scan error, or missing UI:
 Did clearing plugin cache/rescanning change it:
 ```
+
+If scan troubleshooting needs more detail later, the founder will manually ask for it.
 
 ## Tone Feedback Form
 
@@ -54,6 +58,8 @@ Would you use this in another private beta test:
 Most important tone fix:
 ```
 
+Use original playing descriptions only. Do not compare the tone to specific brands, artists, albums, songs, or trademarked amp models in feedback intended for the packet.
+
 ## Usability
 
 ```text
@@ -63,6 +69,8 @@ Was mono/stereo behavior clear:
 CPU usage acceptable:
 Biggest missing feature:
 ```
+
+This is not a pricing, launch, or purchase-intent form.
 
 ## Bug Report Template
 
@@ -86,3 +94,5 @@ Any error text:
 Screenshot/video attached, only if it contains no private data:
 Workaround, if any:
 ```
+
+The default bug report should be text-only. Do not attach private sessions, client files, unreleased music, proprietary IRs, screenshots, videos, or personal data unless you intentionally choose to share them.

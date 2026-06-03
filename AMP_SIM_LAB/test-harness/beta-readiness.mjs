@@ -28,7 +28,7 @@ export function createBetaDocsChecklist(betaDocs = {}) {
   const checks = [
     {
       name: "private beta disclaimer",
-      passed: hasEvery(allContent, ["private beta", "beta software", "not a public release"])
+      passed: hasEvery(allContent, ["private beta", "beta software", "not a public release", "there is no public release yet"])
     },
     {
       name: "installation instructions placeholder",
@@ -60,11 +60,15 @@ export function createBetaDocsChecklist(betaDocs = {}) {
     },
     {
       name: "privacy and no private data guardrail",
-      passed: hasEvery(allContent, ["do not include personal data", "private sessions"])
+      passed: hasEvery(allContent, ["do not include personal data", "private sessions", "no private data is collected beyond what the founder manually asks"])
+    },
+    {
+      name: "manual-only feedback guardrail",
+      passed: hasEvery(allContent, ["founder manually asks", "private channels", "testers can choose"])
     },
     {
       name: "no telemetry or analytics guardrail",
-      passed: hasEvery(allContent, ["telemetry", "analytics", "automatic data collection"])
+      passed: hasEvery(allContent, ["telemetry", "analytics", "automatic data collection", "no automatic or hidden data collection"])
     },
     {
       name: "no public release claims boundary",
@@ -76,7 +80,7 @@ export function createBetaDocsChecklist(betaDocs = {}) {
     },
     {
       name: "pack README mirrors beta boundary",
-      passed: hasEvery(readmeContent, ["not a public release", "installation instructions placeholder", "uninstall instructions placeholder"])
+      passed: hasEvery(readmeContent, ["not a public release", "there is no public release yet", "installation instructions placeholder", "uninstall instructions placeholder"])
     }
   ];
 
