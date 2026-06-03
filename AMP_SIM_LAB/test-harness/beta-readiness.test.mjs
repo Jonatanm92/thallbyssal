@@ -4,21 +4,23 @@ import { createBetaDocsChecklist, createBetaReadinessReport } from "./beta-readi
 
 const cleanBetaDocs = {
   betaTesterPacket: `
-    Private beta disclaimer. This is beta software and not a public release.
+    Private beta disclaimer. This is beta software, not a public release, and there is no public release yet.
     Installation Instructions Placeholder from founder-approved private link with plugin rescan.
     Uninstall Instructions Placeholder says delete only the beta plugin file and plugin rescan.
     Supported OS/DAW Placeholder lists Windows 10/11 and REAPER.
     Privacy says do not include personal data or private sessions.
-    This beta has no telemetry, no analytics, and no automatic data collection.
+    No private data is collected beyond what the founder manually asks for later through private channels, and testers can choose not to send it.
+    This beta has no telemetry, no analytics, no automatic or hidden data collection, and no automatic data collection.
     Public Claims Boundary: no public release claims and no exact modeled-amp claims.
   `,
   readmeBeta: `
-    Private beta, not a public release.
+    Private beta, not a public release. There is no public release yet.
     Installation Instructions Placeholder.
     Uninstall Instructions Placeholder.
     Supported OS/DAW Placeholder lists Windows 10/11 and REAPER.
     No public release claims and no exact modeled-amp claims.
-    Do not include personal data, private sessions, telemetry, analytics, or automatic data collection.
+    Do not include personal data, private sessions, telemetry, analytics, automatic data collection, or hidden data collection.
+    No private data is collected beyond what the founder manually asks for later through private channels, and testers can choose not to send it.
   `,
   knownIssues: `
     Known Issues.

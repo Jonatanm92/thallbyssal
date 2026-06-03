@@ -13,14 +13,22 @@ test("creates internal placeholder rows when no render data exists", () => {
   });
 
   assert.equal(model.summary.mode, "placeholder");
+  assert.equal(model.summary.dryRunRows, model.rows.length);
+  assert.equal(model.summary.realRenderRows, 0);
   assert.equal(model.summary.renderedClips, 0);
   assert.ok(model.rows.length >= 2);
   assert.equal(model.rows.every((row) => row.clipHref === null), true);
   assert.match(model.rows[0].statusLabel, /placeholder/i);
+  assert.match(model.rows[0].renderTypeLabel, /Dry-run/i);
 
   const html = createDemoAuditionHtml(model);
-  assert.match(html, /Internal demo\/audition only/);
-  assert.match(html, /does not approve public release/);
+  assert.match(html, /Internal\/private demo audition only/);
+  assert.match(html, /render-results\.html/);
+  assert.match(html, /audition-matrix\.html/);
+  assert.match(html, /Baseline reports/);
+  assert.match(html, /baseline-compare\.html/);
+  assert.match(html, /beta-readiness\.html/);
+  assert.match(html, /not approval for external use or release readiness/);
   assert.doesNotMatch(html, /release ready/i);
   assert.doesNotMatch(html, /artist|song|brand/i);
 });
@@ -68,7 +76,10 @@ test("links rendered clips from real render results when clip files exist", () =
   });
 
   assert.equal(model.summary.mode, "render-results");
+  assert.equal(model.summary.realRenderRows, 1);
+  assert.equal(model.summary.dryRunRows, 0);
   assert.equal(model.summary.renderedClips, 1);
+  assert.equal(model.rows[0].renderTypeLabel, "Real render clip");
   assert.equal(model.rows[0].statusLabel, "rendered");
   assert.equal(model.rows[0].clipHref, "../renders/auditions/session-001/tight-rhythm-low-tuned/processed.wav");
   assert.equal(model.rows[0].clipLabel, "processed.wav");
@@ -77,6 +88,7 @@ test("links rendered clips from real render results when clip files exist", () =
 
   const html = createDemoAuditionHtml(model);
   assert.match(html, /<audio controls preload="none"/);
+  assert.match(html, /Real render rows: 1/);
   assert.match(html, /processed\.wav/);
   assert.doesNotMatch(html, /release ready/i);
 });

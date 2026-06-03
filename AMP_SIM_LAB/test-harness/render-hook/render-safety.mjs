@@ -1,13 +1,15 @@
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { renderHookRoot, renderReportPaths } from "./render-adapter.mjs";
-import { labRoot, rendersDir, reportsDir } from "../lab-paths.mjs";
+import { labRoot, rendersDir, reportsDir, repoRoot } from "../lab-paths.mjs";
 
 const reportPath = path.join(reportsDir, "render-safety.json");
 const htmlPath = path.join(reportsDir, "render-safety.html");
 const thisFilePath = fileURLToPath(import.meta.url);
+const branchBaseRef = process.env.AMP_SIM_LAB_RENDER_SAFETY_BASE || "factory/lab-foundation-checkpoint";
 
 const approvedRenderRoots = [
   path.join(labRoot, "renders"),
@@ -21,7 +23,29 @@ const requiredDspCoreBasenames = [
   "PluginProcessor.cpp"
 ];
 
-const forbiddenSourcePatterns = [
+const protectedDspCorePaths = [
+  "native/juce-audio-engine/Source/ThallLabDspEngine.h",
+  "native/juce-audio-engine/Source/ThallLabDspEngine.cpp",
+  "native/juce-audio-engine/Source/PluginProcessor.h",
+  "native/juce-audio-engine/Source/PluginProcessor.cpp"
+];
+
+const validatorSelfPaths = new Set([
+  "AMP_SIM_LAB/test-harness/render-hook/render-safety.mjs",
+  "AMP_SIM_LAB/test-harness/render-hook/render-hook.test.mjs"
+]);
+
+const publicSystemGuardrailSourcePaths = new Set([
+  "AMP_SIM_LAB/test-harness/beta-readiness.mjs",
+  "AMP_SIM_LAB/test-harness/beta-readiness.test.mjs",
+  "AMP_SIM_LAB/test-harness/preset-validation.test.mjs",
+  "AMP_SIM_LAB/test-harness/validate-presets.mjs"
+]);
+
+const executableSourceExtension = /\.(mjs|cjs|js|jsx|ts|tsx|json|ps1|sh|bash|bat|cmd|cpp|c|h|hpp|cmake|yml|yaml)$/i;
+const originalAudioOrAssetExtension = /\.(wav|wave|aif|aiff|flac|mp3|ogg|nam|ir)$/i;
+
+const guiAutomationPatterns = [
   /playwright/i,
   /puppeteer/i,
   /robotjs/i,
@@ -35,14 +59,40 @@ const forbiddenSourcePatterns = [
   /mainwindowhandle/i,
   /findwindow/i,
   /postmessage/i,
-  /sendmessage/i,
+  /sendmessage/i
+];
+
+const publicSystemPatterns = [
+  /public\s+(launch|release)/i,
   /telemetry/i,
   /analytics/i,
+  /posthog/i,
+  /segment\.com/i,
+  /mixpanel/i,
+  /sentry/i,
   /\bauth\b/i,
+  /auth0/i,
+  /oauth/i,
+  /\blogin\b/i,
+  /\bsign-?up\b/i,
   /checkout/i,
+  /payment/i,
+  /stripe/i,
+  /paddle/i,
+  /gumroad/i,
+  /lemonsqueezy/i,
   /licensing\s+server/i,
+  /license\s+server/i,
+  /license\s+key/i,
+  /licenseKey/i,
+  /activation\s+server/i,
   /cloud\s+sync/i,
   /\bdrm\b/i
+];
+
+const forbiddenSourcePatterns = [
+  ...guiAutomationPatterns,
+  ...publicSystemPatterns
 ];
 
 const fakeRendererPatterns = [
@@ -90,8 +140,38 @@ function hasShaSignature(value) {
   return value && typeof value.sha256 === "string" && value.sha256.length > 0 && Number.isFinite(value.sizeBytes);
 }
 
-function signaturesMatch(before, after) {
-  return hasShaSignature(before) && hasShaSignature(after) && before.sha256 === after.sha256 && before.sizeBytes === after.sizeBytes;
+function signaturesMatch(before, after, { requireModifiedMs = false } = {}) {
+  if (!hasShaSignature(before) || !hasShaSignature(after)) {
+    return false;
+  }
+
+  if (before.sha256 !== after.sha256 || before.sizeBytes !== after.sizeBytes) {
+    return false;
+  }
+
+  if (!requireModifiedMs) {
+    return true;
+  }
+
+  return Number.isFinite(before.modifiedMs) && Number.isFinite(after.modifiedMs) && before.modifiedMs === after.modifiedMs;
+}
+
+function hasApprovedRendererProvenance(result) {
+  if (
+    result.renderPath?.available === true &&
+    result.renderPath?.kind === "local-headless-command" &&
+    /render-offline\.ps1$/i.test(result.renderPath?.command ?? "")
+  ) {
+    return true;
+  }
+
+  const text = [
+    ...(result.messages ?? []),
+    result.nativeRender?.stdout,
+    result.nativeRender?.stderr
+  ].filter(Boolean).join("\n");
+
+  return result.nativeRender?.exitCode === 0 && /ThallbyssalOfflineRenderer/.test(text);
 }
 
 async function fileSignature(filePath) {
@@ -101,7 +181,172 @@ async function fileSignature(filePath) {
 
   return {
     sizeBytes: stats.size,
+    modifiedMs: stats.mtimeMs,
     sha256: hash.digest("hex")
+  };
+}
+
+function normalizeRepoPath(value) {
+  return String(value ?? "").replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+function parseNameStatus(stdout, source) {
+  return stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("\t");
+      const status = parts[0] ?? "";
+      if (status.startsWith("R") || status.startsWith("C")) {
+        return { status, oldPath: normalizeRepoPath(parts[1]), path: normalizeRepoPath(parts[2]), source };
+      }
+      return { status, path: normalizeRepoPath(parts[1] ?? parts[0]), source };
+    });
+}
+
+function git(args) {
+  return spawnSync("git", args, {
+    cwd: repoRoot,
+    encoding: "utf8",
+    shell: false
+  });
+}
+
+function uniqueChanges(changes) {
+  const seen = new Set();
+  return changes.filter((change) => {
+    const key = `${change.status}:${change.path}:${change.oldPath ?? ""}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function collectGitChanges(baseRef, warnings) {
+  const changes = [];
+  const diffCommands = [
+    { source: "branch", args: ["diff", "--name-status", "-M", `${baseRef}...HEAD`] },
+    { source: "staged", args: ["diff", "--name-status", "-M", "--cached"] }
+  ];
+
+  for (const command of diffCommands) {
+    const result = git(command.args);
+    if (result.status !== 0) {
+      warnings.push(`Git ${command.source} diff could not be read: ${(result.stderr || result.stdout || "").trim()}`);
+      continue;
+    }
+    changes.push(...parseNameStatus(result.stdout, command.source));
+  }
+
+  if (process.env.AMP_SIM_LAB_RENDER_SAFETY_INCLUDE_WORKTREE === "1") {
+    const worktree = git(["diff", "--name-status", "-M"]);
+    if (worktree.status !== 0) {
+      warnings.push(`Git worktree diff could not be read: ${(worktree.stderr || worktree.stdout || "").trim()}`);
+    } else {
+      changes.push(...parseNameStatus(worktree.stdout, "worktree"));
+    }
+
+    const untracked = git(["ls-files", "--others", "--exclude-standard", "-z"]);
+    if (untracked.status !== 0) {
+      warnings.push(`Git untracked files could not be read: ${(untracked.stderr || untracked.stdout || "").trim()}`);
+    } else {
+      for (const filePath of untracked.stdout.split("\0").filter(Boolean)) {
+        changes.push({ status: "??", path: normalizeRepoPath(filePath), source: "untracked" });
+      }
+    }
+  }
+
+  return uniqueChanges(changes);
+}
+
+function changedPaths(change) {
+  return [change.path, change.oldPath].filter(Boolean).map(normalizeRepoPath);
+}
+
+function isProtectedDspCorePath(repoPath) {
+  return protectedDspCorePaths.some((protectedPath) => repoPath.toLowerCase() === protectedPath.toLowerCase());
+}
+
+function isOriginalDiOrUserAssetPath(repoPath) {
+  return /^AMP_SIM_LAB\/di-test-files\//i.test(repoPath) || originalAudioOrAssetExtension.test(repoPath);
+}
+
+function shouldScanChangedSource(repoPath) {
+  return executableSourceExtension.test(repoPath) && !validatorSelfPaths.has(repoPath);
+}
+
+function shouldScanPublicSystemPatterns(repoPath) {
+  return !publicSystemGuardrailSourcePaths.has(repoPath);
+}
+
+async function changedFileTexts(changes, warnings) {
+  const entries = [];
+  const paths = [...new Set(changes.flatMap(changedPaths))].filter(shouldScanChangedSource);
+
+  for (const repoPath of paths) {
+    try {
+      entries.push([repoPath, await readText(path.join(repoRoot, repoPath))]);
+    } catch {
+      warnings.push(`Changed source file could not be read for safety scan: ${repoPath}`);
+    }
+  }
+
+  return new Map(entries);
+}
+
+export function validateBranchSafety({ changes = [], fileTexts = new Map(), baseRef = branchBaseRef } = {}) {
+  const errors = [];
+  const warnings = [];
+  const changedFiles = [...new Set(changes.flatMap(changedPaths))].sort();
+
+  for (const change of changes) {
+    for (const repoPath of changedPaths(change)) {
+      if (isProtectedDspCorePath(repoPath)) {
+        errors.push(`Protected DSP/core file was changed in ${change.source ?? "git"} diff: ${repoPath}`);
+      }
+
+      if (isOriginalDiOrUserAssetPath(repoPath)) {
+        errors.push(`Original DI/audio/user asset was changed in ${change.source ?? "git"} diff: ${repoPath}`);
+      }
+    }
+  }
+
+  for (const [repoPath, text] of fileTexts.entries()) {
+    for (const pattern of guiAutomationPatterns) {
+      if (pattern.test(text)) {
+        errors.push(`GUI automation indicator ${pattern} found in changed source: ${repoPath}`);
+      }
+    }
+
+    for (const pattern of fakeRendererPatterns) {
+      if (pattern.test(text)) {
+        errors.push(`Fake render/copy indicator ${pattern} found in changed source: ${repoPath}`);
+      }
+    }
+
+    if (shouldScanPublicSystemPatterns(repoPath)) {
+      for (const pattern of publicSystemPatterns) {
+        if (pattern.test(text)) {
+          errors.push(`Public release/checkout/licensing/auth/telemetry indicator ${pattern} found in changed source: ${repoPath}`);
+        }
+      }
+    }
+  }
+
+  return {
+    errors,
+    warnings,
+    baseRef,
+    changedFiles,
+    summary: {
+      changedFiles: changedFiles.length,
+      scannedChangedSourceFiles: fileTexts.size,
+      protectedDspCoreChanges: errors.filter((message) => message.includes("Protected DSP/core")).length,
+      originalDiOrAssetChanges: errors.filter((message) => message.includes("Original DI/audio/user asset")).length
+    }
   };
 }
 
@@ -163,8 +408,8 @@ export function validateRenderResultsReport(renderResults, { approvedRoots = app
       errors.push(`Input DI unchanged safety flag is not true for job ${jobId}.`);
     }
 
-    if (!signaturesMatch(safety.inputBefore, safety.inputAfter)) {
-      errors.push(`Input DI hash/size changed or is missing for job ${jobId}.`);
+    if (!signaturesMatch(safety.inputBefore, safety.inputAfter, { requireModifiedMs: true })) {
+      errors.push(`Input DI hash/size/mtime changed or is missing for job ${jobId}.`);
     }
 
     if (safety.guiAutomationUsed !== false) {
@@ -185,13 +430,27 @@ export function validateRenderResultsReport(renderResults, { approvedRoots = app
 
       if (!beforeEntry || !afterEntry) {
         errors.push(`DSP/core hash record for ${requiredName} is missing in job ${jobId}.`);
-      } else if (!signaturesMatch(beforeEntry[1], afterEntry[1])) {
-        errors.push(`DSP/core hash changed for ${requiredName} in job ${jobId}.`);
+      } else if (!signaturesMatch(beforeEntry[1], afterEntry[1], { requireModifiedMs: true })) {
+        errors.push(`DSP/core hash/size/mtime changed for ${requiredName} in job ${jobId}.`);
       }
     }
 
-    if (result.processedWavPath && signaturesMatch(safety.inputBefore, safety.processedOutput)) {
-      errors.push(`Processed WAV hash matches input DI hash for job ${jobId}; possible fake copy-render.`);
+    if (result.processedWavPath) {
+      if (result.status !== "rendered" || result.renderHookStatus !== "real-render") {
+        errors.push(`Processed WAV path is present without a rendered real-render status for job ${jobId}.`);
+      }
+
+      if (!hasApprovedRendererProvenance(result)) {
+        errors.push(`Processed WAV path is present without approved local headless renderer provenance for job ${jobId}.`);
+      }
+
+      if (result.nativeRender?.exitCode !== 0) {
+        errors.push(`Processed WAV path is present without a successful native renderer exit code for job ${jobId}.`);
+      }
+
+      if (signaturesMatch(safety.inputBefore, safety.processedOutput)) {
+        errors.push(`Processed WAV hash matches input DI hash for job ${jobId}; possible fake copy-render.`);
+      }
     }
 
     const nativeText = [
@@ -243,8 +502,17 @@ async function main() {
   const errors = [];
   const warnings = [];
   const scannedFiles = await walk(renderHookRoot);
+  const branchChanges = collectGitChanges(branchBaseRef, warnings);
+  const branchFileTexts = await changedFileTexts(branchChanges, warnings);
+  const branchValidation = validateBranchSafety({
+    changes: branchChanges,
+    fileTexts: branchFileTexts,
+    baseRef: branchBaseRef
+  });
+  errors.push(...branchValidation.errors);
+  warnings.push(...branchValidation.warnings);
 
-  for (const filePath of scannedFiles.filter((file) => file.endsWith(".mjs") && path.basename(file) !== "render-safety.mjs")) {
+  for (const filePath of scannedFiles.filter((file) => file.endsWith(".mjs") && path.basename(file) !== "render-safety.mjs" && !file.endsWith(".test.mjs"))) {
     const text = await readText(filePath);
     for (const pattern of [...forbiddenSourcePatterns, ...fakeRendererPatterns]) {
       if (pattern.test(text)) {
@@ -294,11 +562,14 @@ async function main() {
       "render-hook source has no GUI automation or fake copy-render indicators",
       "native renderer sources have no GUI automation or fake copy-render indicators",
       "render result output paths stay inside approved render roots and job directories",
-      "input DI before/after hashes and sizes match",
+      "input DI before/after hashes, sizes, and mtimes match",
       "processed WAV hash does not match the input DI hash",
+      "processed WAVs require rendered status, successful native exit, and local headless renderer provenance",
       "GUI automation result flag is false",
-      "protected DSP/core before/after hashes and sizes match"
+      "protected DSP/core before/after hashes, sizes, and mtimes match",
+      "git branch/staged diff has no DSP/core, DI/audio asset, GUI automation, fake render, or public release system additions"
     ],
+    branchSafety: branchValidation,
     errors,
     warnings,
     summary: {

@@ -16,7 +16,8 @@ imports
 native/juce-audio-engine/build
 
 # AMP_SIM_LAB generated/heavy artifacts
-AMP_SIM_LAB/renders/
+AMP_SIM_LAB/renders/*
+!AMP_SIM_LAB/renders/.gitkeep
 AMP_SIM_LAB/di-test-files/*.wav
 AMP_SIM_LAB/di-test-files/*.aif
 AMP_SIM_LAB/di-test-files/*.aiff

@@ -5,14 +5,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as baselineReports from "./baseline.mjs";
 import { createRenderPlan, detectSafeRenderPath, isInsideDirectory } from "./render-adapter.mjs";
-import { validateRenderResultsReport } from "./render-safety.mjs";
+import { validateBranchSafety, validateRenderResultsReport } from "./render-safety.mjs";
 
 const renderRoot = "D:\\CodexBuilds\\thallbyssal-lab\\renders";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
-function signature(sha256, sizeBytes = 1024) {
-  return { sha256, sizeBytes, modifiedMs: 1 };
+function signature(sha256, sizeBytes = 1024, modifiedMs = 1) {
+  return { sha256, sizeBytes, modifiedMs };
 }
 
 function dspSignatures(sha256 = "dsp-a") {
@@ -31,9 +31,22 @@ function safeRenderResult(overrides = {}) {
   return {
     jobId: "job",
     inputPath: "D:\\CodexBuilds\\thallbyssal-lab\\di-test-files\\input.wav",
+    status: "rendered",
+    renderHookStatus: "real-render",
+    renderPath: {
+      available: true,
+      kind: "local-headless-command",
+      command: "C:\\repo\\native\\juce-audio-engine\\scripts\\render-offline.ps1"
+    },
     outputDirectory,
     processedWavPath: path.join(outputDirectory, "processed.wav"),
     messages: [],
+    nativeRender: {
+      exitCode: 0,
+      stdout: "",
+      stderr: "",
+      error: null
+    },
     safety: {
       inputBefore: signature("input-a"),
       inputAfter: signature("input-a"),
@@ -73,6 +86,8 @@ test("baseline comparison reports only render status and technical metric snapsh
       {
         jobId: "high-gain-foundation-01",
         status: "rendered",
+        mode: "real",
+        renderHookStatus: "real-render",
         processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\baseline\\processed.wav",
         metrics: {
           peakDbfs: -1.5,
@@ -89,6 +104,8 @@ test("baseline comparison reports only render status and technical metric snapsh
       {
         jobId: "high-gain-foundation-01",
         status: "failed",
+        mode: "real",
+        renderHookStatus: "real-render",
         processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\current\\processed.wav",
         metrics: {
           peakDbfs: -1,
@@ -105,6 +122,14 @@ test("baseline comparison reports only render status and technical metric snapsh
   assert.equal(report.summary.comparedJobs, 1);
   assert.equal(Object.hasOwn(report.summary, "toneJudgement"), false);
   assert.deepEqual(report.metricFields, ["peakDbfs", "rmsDbfs", "lufsEstimate", "clippedSamples"]);
+  assert.deepEqual(report.statusFields, ["renderStatus", "renderSuccess", "renderHookStatus", "renderMode", "processedWavPresent", "missingRenderOutput"]);
+  assert.equal(report.summary.renderSuccessChanges, 1);
+  assert.equal(report.summary.dryRunRealRenderChanges, 0);
+  assert.equal(report.summary.missingRenderOutputChanges, 0);
+  assert.equal(report.comparisons[0].current.renderHookStatus, "real-render");
+  assert.equal(report.comparisons[0].current.renderMode, "real");
+  assert.equal(report.comparisons[0].current.processedWavPresent, true);
+  assert.equal(report.comparisons[0].current.missingRenderOutput, false);
   assert.deepEqual(report.comparisons[0].baseline.metrics, {
     peakDbfs: -1.5,
     rmsDbfs: -18.25,
@@ -133,6 +158,8 @@ test("baseline create report lists render status, file references, and metrics o
       {
         jobId: "high-gain-foundation-01",
         status: "rendered",
+        mode: "real",
+        renderHookStatus: "real-render",
         inputPath: "D:\\CodexBuilds\\thallbyssal-lab\\di-test-files\\LOW TUNED CHUGS.wav",
         presetPath: "C:\\repo\\AMP_SIM_LAB\\presets\\examples\\high_gain_foundation_01.json",
         processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\baseline\\processed.wav",
@@ -155,7 +182,14 @@ test("baseline create report lists render status, file references, and metrics o
   assert.deepEqual(report.metricFields, ["peakDbfs", "rmsDbfs", "lufsEstimate", "clippedSamples"]);
   assert.equal(Object.hasOwn(report.summary, "toneJudgement"), false);
   assert.equal(report.summary.jobs, 1);
+  assert.equal(report.summary.realRenderJobs, 1);
+  assert.equal(report.summary.dryRuns, 0);
+  assert.equal(report.summary.missingRenderOutputs, 0);
   assert.equal(report.jobs[0].renderSuccess, true);
+  assert.equal(report.jobs[0].renderHookStatus, "real-render");
+  assert.equal(report.jobs[0].renderMode, "real");
+  assert.equal(report.jobs[0].processedWavPresent, true);
+  assert.equal(report.jobs[0].missingRenderOutput, false);
   assert.deepEqual(report.jobs[0].metrics, {
     peakDbfs: -1.5,
     rmsDbfs: -18.25,
@@ -168,6 +202,54 @@ test("baseline create report lists render status, file references, and metrics o
     processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\baseline\\processed.wav",
     outputDirectory: null
   });
+});
+
+test("baseline reports dry-run status and missing real-render outputs objectively", () => {
+  const current = {
+    generatedAt: "2026-06-01T11:00:00.000Z",
+    results: [
+      {
+        jobId: "real-render-missing-output",
+        status: "failed",
+        mode: "real",
+        renderHookStatus: "real-render",
+        processedWavPath: "D:\\CodexBuilds\\thallbyssal-lab\\renders\\missing\\processed.wav",
+        metrics: null
+      },
+      {
+        jobId: "dry-run",
+        status: "dry_run",
+        mode: "dry-run",
+        renderHookStatus: "dry-run",
+        processedWavPath: null,
+        metrics: null
+      }
+    ]
+  };
+  const outputExistsByPath = new Map([
+    ["D:\\CodexBuilds\\thallbyssal-lab\\renders\\missing\\processed.wav", false]
+  ]);
+
+  const report = baselineReports.createBaselineSnapshotReport(
+    current,
+    "D:\\CodexBuilds\\thallbyssal-lab\\baselines\\baseline.json",
+    { outputExistsByPath }
+  );
+
+  assert.equal(report.summary.failed, 1);
+  assert.equal(report.summary.dryRuns, 1);
+  assert.equal(report.summary.realRenderJobs, 1);
+  assert.equal(report.summary.missingRenderOutputs, 1);
+  assert.deepEqual(report.jobs[0].metrics, {
+    peakDbfs: null,
+    rmsDbfs: null,
+    lufsEstimate: null,
+    clippedSamples: null
+  });
+  assert.equal(report.jobs[0].processedWavPresent, false);
+  assert.equal(report.jobs[0].missingRenderOutput, true);
+  assert.equal(report.jobs[1].renderHookStatus, "dry-run");
+  assert.equal(report.jobs[1].missingRenderOutput, false);
 });
 
 test("blocks real render when no safe headless entrypoint exists", () => {
@@ -235,9 +317,27 @@ test("render safety report validator rejects missing or changed DI and DSP safet
   );
 
   assert.match(validation.errors.join("\n"), /escapes approved render roots/);
-  assert.match(validation.errors.join("\n"), /Input DI hash\/size changed/);
+  assert.match(validation.errors.join("\n"), /Input DI hash\/size\/mtime changed/);
   assert.match(validation.errors.join("\n"), /GUI automation flag is not false/);
-  assert.match(validation.errors.join("\n"), /DSP\/core hash changed/);
+  assert.match(validation.errors.join("\n"), /DSP\/core hash\/size\/mtime changed/);
+});
+
+test("render safety report validator rejects touched DI mtimes even when bytes match", () => {
+  const validation = validateRenderResultsReport(
+    {
+      results: [
+        safeRenderResult({
+          safety: {
+            ...safeRenderResult().safety,
+            inputAfter: signature("input-a", 1024, 2)
+          }
+        })
+      ]
+    },
+    { approvedRoots: [renderRoot] }
+  );
+
+  assert.match(validation.errors.join("\n"), /Input DI hash\/size\/mtime changed/);
 });
 
 test("render safety report validator rejects byte-identical processed output", () => {
@@ -256,6 +356,85 @@ test("render safety report validator rejects byte-identical processed output", (
   );
 
   assert.match(validation.errors.join("\n"), /possible fake/);
+});
+
+test("render safety report validator rejects processed output without approved renderer provenance", () => {
+  const validation = validateRenderResultsReport(
+    {
+      results: [
+        safeRenderResult({
+          renderPath: {
+            available: false,
+            kind: "missing",
+            command: null
+          },
+          nativeRender: {
+            exitCode: 1,
+            stdout: "",
+            stderr: "",
+            error: null
+          }
+        })
+      ]
+    },
+    { approvedRoots: [renderRoot] }
+  );
+
+  assert.match(validation.errors.join("\n"), /approved local headless renderer provenance/);
+  assert.match(validation.errors.join("\n"), /successful native renderer exit code/);
+});
+
+test("branch safety validator rejects DSP, DI asset, GUI automation, fake render, and public systems", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "native/juce-audio-engine/Source/PluginProcessor.cpp", source: "branch" },
+      { status: "M", path: "AMP_SIM_LAB/di-test-files/LOW TUNED CHUGS.wav", source: "branch" },
+      { status: "A", path: "AMP_SIM_LAB/test-harness/render-hook/new-render.mjs", source: "branch" }
+    ],
+    fileTexts: new Map([
+      [
+        "AMP_SIM_LAB/test-harness/render-hook/new-render.mjs",
+        "import playwright from 'playwright'; fs.copyFileSync(input, output); const telemetry = true;"
+      ]
+    ])
+  });
+
+  const messages = validation.errors.join("\n");
+  assert.match(messages, /Protected DSP\/core file/);
+  assert.match(messages, /Original DI\/audio\/user asset/);
+  assert.match(messages, /GUI automation indicator/);
+  assert.match(messages, /Fake render\/copy indicator/);
+  assert.match(messages, /Public release\/checkout\/licensing\/auth\/telemetry indicator/);
+});
+
+test("branch safety validator allows validator self-check source terms", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "AMP_SIM_LAB/test-harness/render-hook/render-safety.mjs", source: "branch" }
+    ],
+    fileTexts: new Map()
+  });
+
+  assert.deepEqual(validation.errors, []);
+});
+
+test("branch safety validator allows lab guardrail policy terms but still rejects GUI and fake render indicators", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "AMP_SIM_LAB/test-harness/beta-readiness.mjs", source: "branch" }
+    ],
+    fileTexts: new Map([
+      [
+        "AMP_SIM_LAB/test-harness/beta-readiness.mjs",
+        "const boundary = 'No checkout, licensing server, telemetry, analytics, cloud sync, DRM, auth, or public release.';\nimport playwright from 'playwright';\nfs.copyFileSync(input, output);"
+      ]
+    ])
+  });
+
+  const messages = validation.errors.join("\n");
+  assert.doesNotMatch(messages, /Public release\/checkout\/licensing\/auth\/telemetry indicator/);
+  assert.match(messages, /GUI automation indicator/);
+  assert.match(messages, /Fake render\/copy indicator/);
 });
 
 test("offline renderer records and validates the actual heavy signal chain", () => {
