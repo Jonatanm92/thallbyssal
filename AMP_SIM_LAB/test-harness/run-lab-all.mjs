@@ -9,6 +9,7 @@ const commands = [
   ["lab:test", "run-lab-tests.mjs"],
   ["lab:metrics", "run-audio-regression.mjs"],
   ["lab:di", "validate-di-files.mjs"],
+  ["lab:input-match", path.join("input-match", "run-input-match.mjs")],
   ["lab:founder-assets", "validate-founder-assets.mjs"],
   ["lab:audition", "generate-audition-matrix.mjs"],
   ["lab:audition:render", path.join("render-hook", "run-audition-render.mjs")],
