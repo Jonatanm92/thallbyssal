@@ -14,6 +14,7 @@ const tests = [
   "ir-reference-audition.test.mjs",
   "preset-audition-selection.test.mjs",
   "preset-validation.test.mjs",
+  path.join("reference-comparison", "reference-tone-gap.test.mjs"),
   "reference-feedback-plan.test.mjs",
   "reference-listening-pack.test.mjs",
   path.join("render-hook", "render-hook.test.mjs")
