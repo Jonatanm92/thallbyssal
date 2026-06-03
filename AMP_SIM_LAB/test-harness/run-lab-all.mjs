@@ -13,6 +13,7 @@ const commands = [
   ["lab:founder-assets", "validate-founder-assets.mjs"],
   ["lab:audition", "generate-audition-matrix.mjs"],
   ["lab:audition:render", path.join("render-hook", "run-audition-render.mjs")],
+  ["lab:preset-audition-selection", "generate-preset-audition-selection.mjs"],
   ["lab:render:safety", path.join("render-hook", "render-safety.mjs")],
   ["lab:validate-presets", "validate-presets.mjs"],
   ["lab:beta-pack", "create-beta-pack.mjs"],

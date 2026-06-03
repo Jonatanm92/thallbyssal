@@ -12,6 +12,7 @@ const tests = [
   "founder-assets.test.mjs",
   path.join("input-match", "input-match.test.mjs"),
   "ir-reference-audition.test.mjs",
+  "preset-audition-selection.test.mjs",
   "preset-validation.test.mjs",
   "reference-feedback-plan.test.mjs",
   "reference-listening-pack.test.mjs",

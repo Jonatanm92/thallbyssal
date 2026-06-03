@@ -13,6 +13,7 @@ const reportLinks = [
   ["Demo Clip Pack", "demo-clips-index.html", "Internal founder review index for existing real-render clips, metrics, use cases, and rating placeholders."],
   ["Demo Audition", "demo-audition.html", "Internal-only dry-run and local render clip viewer for audition jobs."],
   ["Render Results", "render-results.html", "Dry-run or real-render hook output, processed WAV locations, and render metrics."],
+  ["Preset Audition Selection", "preset-audition-selection.html", "Founder-only worksheet for rating audition renders and marking beta-demo candidates without auto-ranking tone."],
   ["Render Safety", "render-safety.html", "Local safety validation for output paths, input immutability, GUI automation, and DSP edit flags."],
   ["Baseline Compare", "baseline-compare.html", "Internal regression baseline comparison for render status and report-only technical metrics."],
   ["Preset Validation", "preset-validation.html", "Preset schema, category, naming, and safety checks."],
