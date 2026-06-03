@@ -38,6 +38,7 @@ const validatorSelfPaths = new Set([
 const publicSystemGuardrailSourcePaths = new Set([
   "AMP_SIM_LAB/test-harness/beta-readiness.mjs",
   "AMP_SIM_LAB/test-harness/beta-readiness.test.mjs",
+  "AMP_SIM_LAB/test-harness/generate-report-index.mjs",
   "AMP_SIM_LAB/test-harness/preset-validation.test.mjs",
   "AMP_SIM_LAB/test-harness/validate-presets.mjs"
 ]);
@@ -88,6 +89,23 @@ const publicSystemPatterns = [
   /activation\s+server/i,
   /cloud\s+sync/i,
   /\bdrm\b/i
+];
+
+const publicSystemImplementationPatterns = [
+  /import\s+.*\b(stripe|posthog|mixpanel|sentry|auth0|oauth|paddle|gumroad|lemonsqueezy)\b/i,
+  /from\s+["'][^"']*\b(stripe|posthog|mixpanel|sentry|auth0|oauth|paddle|gumroad|lemonsqueezy)\b[^"']*["']/i,
+  /new\s+Stripe\b/i,
+  /\b(posthog|mixpanel|sentry)\.(init|capture|track|configure)\b/i,
+  /\banalytics\.(track|identify|page)\b/i,
+  /\btelemetry\s*[:=]\s*true\b/i,
+  /\bauth\s*[:=]\s*["'`]/i,
+  /\blicenseKey\s*[:=]/i,
+  /\blicense\s+key\s*[:=]/i,
+  /\bcheckout\s*[:=]\s*["'`]/i,
+  /\bstartCheckout\b/i,
+  /process\.env\.[A-Z0-9_]*(STRIPE|POSTHOG|MIXPANEL|SENTRY|AUTH|OAUTH|LICENSE|TELEMETRY|PADDLE|GUMROAD|DRM)[A-Z0-9_]*/i,
+  /\b(app|router)\.(get|post|use)\(\s*["']\/(checkout|login|auth|signup|license|telemetry|analytics)\b/i,
+  /\bfetch\(\s*["'][^"']*\b(checkout|login|auth|signup|license|telemetry|analytics)\b/i
 ];
 
 const forbiddenSourcePatterns = [
@@ -282,6 +300,16 @@ function shouldScanPublicSystemPatterns(repoPath) {
   return !publicSystemGuardrailSourcePaths.has(repoPath);
 }
 
+function publicSystemPatternsForPath(repoPath) {
+  return shouldScanPublicSystemPatterns(repoPath) ? publicSystemPatterns : publicSystemImplementationPatterns;
+}
+
+function publicSystemPatternLabel(repoPath) {
+  return shouldScanPublicSystemPatterns(repoPath)
+    ? "Public release/checkout/licensing/auth/telemetry indicator"
+    : "Public-system implementation indicator";
+}
+
 async function changedFileTexts(changes, warnings) {
   const entries = [];
   const paths = [...new Set(changes.flatMap(changedPaths))].filter(shouldScanChangedSource);
@@ -327,11 +355,9 @@ export function validateBranchSafety({ changes = [], fileTexts = new Map(), base
       }
     }
 
-    if (shouldScanPublicSystemPatterns(repoPath)) {
-      for (const pattern of publicSystemPatterns) {
-        if (pattern.test(text)) {
-          errors.push(`Public release/checkout/licensing/auth/telemetry indicator ${pattern} found in changed source: ${repoPath}`);
-        }
+    for (const pattern of publicSystemPatternsForPath(repoPath)) {
+      if (pattern.test(text)) {
+        errors.push(`${publicSystemPatternLabel(repoPath)} ${pattern} found in changed source: ${repoPath}`);
       }
     }
   }
