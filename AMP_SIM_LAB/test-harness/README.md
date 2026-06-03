@@ -20,6 +20,7 @@ npm run lab:audition:render
 npm run lab:reference:feedback:plan -- --feedback path\to\thallbyssal-founder-tone-feedback.json
 npm run lab:reference:pack
 npm run lab:reference:serve
+npm run lab:reference:tone-gap -- --di path\to\approved-di.wav --thallbyssal path\to\processed.wav --reference path\to\reference-a.wav --reference path\to\reference-b.wav
 npm run lab:ir:audition
 npm run lab:render
 npm run lab:render:dry-run
@@ -68,6 +69,7 @@ D:\CodexBuilds\thallbyssal-lab\reports\render-safety.json
 D:\CodexBuilds\thallbyssal-lab\reports\render-safety.html
 D:\CodexBuilds\thallbyssal-lab\reports\baseline-compare.json
 D:\CodexBuilds\thallbyssal-lab\reports\baseline-compare.html
+D:\CodexBuilds\thallbyssal-lab\reports\reference-tone-gap-comparison.json
 D:\CodexBuilds\thallbyssal-lab\reports\beta-readiness.json
 D:\CodexBuilds\thallbyssal-lab\reports\beta-readiness.html
 D:\CodexBuilds\thallbyssal-lab\reports\reference-feedback-plan.html
@@ -93,6 +95,8 @@ Override the generated output root with `AMP_SIM_LAB_OUTPUT_DIR`.
 `lab:reference:pack` reads the latest private reference candidate report and writes gain-matched audition WAV copies plus an `index.html` with audio players. It only creates listening copies under the generated D: output folder; it does not change originals, presets, or DSP.
 
 `lab:reference:serve` serves the latest reference listening pack at `http://127.0.0.1:5187/` so the audio players can be opened from a normal localhost browser URL.
+
+`lab:reference:tone-gap` compares one local Thallbyssal render against founder-approved same-DI reference renders. It writes internal markdown and JSON metrics only; it does not write level-matched audio, modify DSP, edit presets, alter DI files, or use external/private-band references for technical A/B.
 
 `lab:reference:feedback:plan` reads the local JSON exported from the founder review sheet and writes a ranked preset-only iteration plan. It never edits presets or approves DSP changes.
 

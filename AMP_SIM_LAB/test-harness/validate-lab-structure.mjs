@@ -43,6 +43,8 @@ const requiredFiles = [
   "test-harness/generate-audition-matrix.mjs",
   "test-harness/generate-beta-readiness.mjs",
   "test-harness/generate-report-index.mjs",
+  "test-harness/reference-comparison/reference-tone-gap.mjs",
+  "test-harness/reference-comparison/reference-tone-gap.test.mjs",
   "test-harness/lab-paths.mjs",
   "test-harness/render-hook-placeholder.mjs",
   "test-harness/render-hook/baseline.mjs",

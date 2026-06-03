@@ -28,6 +28,7 @@
     "lab:reference:feedback:plan": "node AMP_SIM_LAB/test-harness/create-reference-feedback-plan.mjs",
     "lab:reference:pack": "node AMP_SIM_LAB/test-harness/create-reference-listening-pack.mjs",
     "lab:reference:serve": "node AMP_SIM_LAB/test-harness/serve-reference-listening-pack.mjs",
+    "lab:reference:tone-gap": "node AMP_SIM_LAB/test-harness/reference-comparison/reference-tone-gap.mjs",
     "lab:ir:audition": "node AMP_SIM_LAB/test-harness/create-ir-reference-audition.mjs",
     "lab:render": "node AMP_SIM_LAB/test-harness/render-hook/run-render.mjs",
     "lab:render:dry-run": "node AMP_SIM_LAB/test-harness/render-hook/run-render.mjs --dry-run",
