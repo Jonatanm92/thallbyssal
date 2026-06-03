@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { labRoot, reportsDir } from "./lab-paths.mjs";
@@ -29,6 +30,7 @@ const requiredFields = [
 const validCategories = new Set(["rhythm", "lead", "clean", "ambient", "fx", "bass", "utility"]);
 const validGainLevels = new Set(["clean", "crunch", "mid", "high", "extreme"]);
 const validCpuCosts = new Set(["low", "medium", "high", "unknown"]);
+const localIrExtensions = new Set([".wav", ".aif", ".aiff", ".flac"]);
 const forbiddenTerms = [
   "5150",
   "6505",
@@ -54,6 +56,8 @@ const forbiddenTerms = [
 const suspiciousClaimTerms = [
   "album",
   "artist",
+  "as heard on",
+  "as used by",
   "brand",
   "clone",
   "cover",
@@ -65,6 +69,8 @@ const suspiciousClaimTerms = [
   "signature",
   "song",
   "sounds like",
+  "style of",
+  "tone of",
   "trademark"
 ];
 
@@ -90,8 +96,118 @@ function normalizeName(value) {
   return String(value).trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function normalizePresetId(value) {
+  return String(value).trim().toLowerCase();
+}
+
 function sourceRef(context) {
   return `${context.sourceFile}#${context.sourceIndex}`;
+}
+
+function collectStringFields(value, pathName = "preset", fields = []) {
+  if (typeof value === "string") {
+    fields.push([pathName, value]);
+    return fields;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      collectStringFields(entry, `${pathName}[${index}]`, fields);
+    });
+    return fields;
+  }
+
+  if (isObject(value)) {
+    for (const [key, entry] of Object.entries(value)) {
+      collectStringFields(entry, `${pathName}.${key}`, fields);
+    }
+  }
+
+  return fields;
+}
+
+function looksLikeUrl(value) {
+  return /^[a-z][a-z0-9+.-]*:/i.test(value) && !/^[a-z]:[\\/]/i.test(value) && !value.toLowerCase().startsWith("local:");
+}
+
+function isLikelyLocalReference(value) {
+  const trimmed = value.trim();
+
+  return (
+    trimmed.toLowerCase().startsWith("local:") ||
+    trimmed.startsWith(".") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("\\") ||
+    /^[a-z]:[\\/]/i.test(trimmed) ||
+    trimmed.includes("/") ||
+    trimmed.includes("\\") ||
+    localIrExtensions.has(path.extname(trimmed).toLowerCase())
+  );
+}
+
+function resolveLocalReference(value, context) {
+  const rawReference = value.trim().replace(/^local:/i, "").trim();
+  const sourceDir = context.sourcePath ? path.dirname(context.sourcePath) : context.presetDir;
+
+  return path.isAbsolute(rawReference)
+    ? path.normalize(rawReference)
+    : path.resolve(sourceDir, rawReference);
+}
+
+function validateCabOrIrReference(reference, context, errors, warnings) {
+  if (!isNonEmptyString(reference)) {
+    errors.push("cab_or_ir_reference must be a non-empty string.");
+    return;
+  }
+
+  const trimmed = reference.trim();
+  const lowerReference = trimmed.toLowerCase();
+
+  if (looksLikeUrl(trimmed)) {
+    errors.push("cab_or_ir_reference must not be a URL; use a factory id or an existing local founder-owned IR/cab file.");
+    return;
+  }
+
+  if (lowerReference.startsWith("factory-")) {
+    return;
+  }
+
+  if (!isLikelyLocalReference(trimmed)) {
+    warnings.push("Non-factory cab/IR reference must be founder-owned, explicitly licensed, and manually reviewed before release.");
+    return;
+  }
+
+  const resolvedPath = resolveLocalReference(trimmed, context);
+  const extension = path.extname(resolvedPath).toLowerCase();
+
+  if (!localIrExtensions.has(extension)) {
+    errors.push(`Local cab/IR reference "${trimmed}" must use one of: ${Array.from(localIrExtensions).join(", ")}`);
+    context.brokenCabOrIrReferences.add(trimmed);
+    return;
+  }
+
+  let stats;
+  try {
+    stats = fsSync.statSync(resolvedPath);
+  } catch {
+    errors.push(`Local cab/IR reference "${trimmed}" does not exist at ${resolvedPath}.`);
+    context.brokenCabOrIrReferences.add(trimmed);
+    return;
+  }
+
+  if (!stats.isFile()) {
+    errors.push(`Local cab/IR reference "${trimmed}" is not a file.`);
+    context.brokenCabOrIrReferences.add(trimmed);
+    return;
+  }
+
+  if (stats.size === 0) {
+    errors.push(`Local cab/IR reference "${trimmed}" is empty.`);
+    context.brokenCabOrIrReferences.add(trimmed);
+    return;
+  }
+
+  warnings.push("Local cab/IR reference exists but must be founder-owned, explicitly licensed, and manually reviewed before release.");
 }
 
 function escapeHtml(value) {
@@ -137,6 +253,9 @@ function validatePreset(preset, context) {
 
   if (!validGainLevels.has(preset.gain_level)) {
     errors.push(`gain_level must be one of: ${Array.from(validGainLevels).join(", ")}`);
+    if (isNonEmptyString(preset.gain_level)) {
+      context.invalidGainLevels.add(preset.gain_level);
+    }
   }
 
   if (
@@ -167,9 +286,7 @@ function validatePreset(preset, context) {
     errors.push("effects_settings must be an object.");
   }
 
-  if (!isNonEmptyString(preset.cab_or_ir_reference)) {
-    errors.push("cab_or_ir_reference must be a non-empty string.");
-  }
+  validateCabOrIrReference(preset.cab_or_ir_reference, context, errors, warnings);
 
   if (!validCpuCosts.has(preset.cpu_cost_estimate)) {
     errors.push(`cpu_cost_estimate must be one of: ${Array.from(validCpuCosts).join(", ")}`);
@@ -192,28 +309,24 @@ function validatePreset(preset, context) {
 
   if (!isNonEmptyString(preset.author)) {
     errors.push("author must be a non-empty string.");
+    context.missingAuthorOrVersion.add(sourceRef(context));
   }
 
   if (!isNonEmptyString(preset.version)) {
     errors.push("version must be a non-empty string.");
+    context.missingAuthorOrVersion.add(sourceRef(context));
+  } else if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(preset.version.trim())) {
+    warnings.push("Release-readiness: version should use semver-like MAJOR.MINOR.PATCH notation.");
+    context.releaseReadinessWarnings.add(`${sourceRef(context)}:version-format`);
   }
 
   if (!isNonEmptyString(preset.notes)) {
     errors.push("notes must be a non-empty string.");
   }
 
-  const termFields = [
-    preset.preset_id,
-    preset.name,
-    preset.category,
-    preset.pickup_recommendation,
-    preset.cab_or_ir_reference,
-    preset.author,
-    preset.notes,
-    ...(Array.isArray(preset.genre_tags) ? preset.genre_tags : [])
-  ];
+  const stringFields = collectStringFields(preset);
 
-  for (const fieldValue of termFields) {
+  for (const [, fieldValue] of stringFields) {
     const term = includesForbiddenTerm(fieldValue);
     if (term) {
       errors.push(`Forbidden brand/artist/model reference "${term}" found in preset metadata.`);
@@ -221,25 +334,19 @@ function validatePreset(preset, context) {
     }
   }
 
-  const claimFields = [
-    ["preset_id", preset.preset_id],
-    ["name", preset.name],
-    ["genre_tags", Array.isArray(preset.genre_tags) ? preset.genre_tags.join(" ") : ""],
-    ["cab_or_ir_reference", preset.cab_or_ir_reference],
-    ["notes", preset.notes]
-  ];
-
-  for (const [fieldName, fieldValue] of claimFields) {
+  for (const [fieldName, fieldValue] of stringFields) {
     const term = includesSuspiciousClaimTerm(fieldValue);
     if (term) {
       warnings.push(`Suspicious claim language "${term}" found in ${fieldName}; review for brand, artist, song, album, or trademark-like claims.`);
+      context.suspiciousClaimWarnings.add(sourceRef(context));
       break;
     }
   }
 
-  if (isNonEmptyString(preset.preset_id) && context.ids.has(preset.preset_id)) {
-    context.duplicatePresetIds.add(preset.preset_id);
-    errors.push(`Duplicate preset_id "${preset.preset_id}" also used by ${context.ids.get(preset.preset_id)}.`);
+  const normalizedPresetId = normalizePresetId(preset.preset_id);
+  if (isNonEmptyString(preset.preset_id) && context.ids.has(normalizedPresetId)) {
+    context.duplicatePresetIds.add(normalizedPresetId);
+    errors.push(`Duplicate preset_id "${preset.preset_id}" also used by ${context.ids.get(normalizedPresetId)}.`);
   }
 
   const normalizedName = normalizeName(preset.name);
@@ -248,17 +355,17 @@ function validatePreset(preset, context) {
     errors.push(`Duplicate preset name "${preset.name}" also used by ${context.names.get(normalizedName)}.`);
   }
 
-  if (preset.cab_or_ir_reference && typeof preset.cab_or_ir_reference === "string") {
-    const reference = preset.cab_or_ir_reference.toLowerCase();
-    const isFactory = reference.startsWith("factory-");
-    const isEmpty = reference.trim().length === 0;
-    if (!isFactory && !isEmpty) {
-      warnings.push("Non-factory cab/IR reference must be founder-owned or explicitly licensed.");
-    }
+  if (preset.notes && !String(preset.notes).toLowerCase().includes("not approved for public release")) {
+    warnings.push("Release-readiness: preset notes should explicitly say the preset is not approved for public release.");
+    context.releaseReadinessWarnings.add(`${sourceRef(context)}:missing-public-release-disclaimer`);
+  } else if (preset.notes) {
+    warnings.push("Release-readiness: preset is marked not approved for public release and must not ship as a final tone preset.");
+    context.releaseReadinessWarnings.add(`${sourceRef(context)}:not-public-release-approved`);
   }
 
-  if (preset.notes && !String(preset.notes).toLowerCase().includes("not approved for public release")) {
-    warnings.push("Placeholder presets should explicitly say they are not approved for public release.");
+  if (isNonEmptyString(preset.author) && preset.author.trim().toLowerCase() !== "founder") {
+    warnings.push("Release-readiness: non-Founder author should be reviewed for approval and attribution before release.");
+    context.releaseReadinessWarnings.add(`${sourceRef(context)}:author-review`);
   }
 
   return { errors, warnings };
@@ -281,6 +388,7 @@ async function readPresetFiles() {
       entriesInFile.forEach((preset, index) => {
         presets.push({
           sourceFile: path.basename(filePath),
+          sourcePath: filePath,
           sourceIndex: index,
           preset
         });
@@ -298,6 +406,7 @@ async function readPresetFiles() {
 
 export function createHtmlReport(report) {
   const invalidCategories = report.summary.invalidCategories.length > 0 ? report.summary.invalidCategories.join(", ") : "none";
+  const invalidGainLevels = report.summary.invalidGainLevels.length > 0 ? report.summary.invalidGainLevels.join(", ") : "none";
   const rows = report.presets
     .map((entry) => `<tr>
   <td>${escapeHtml(entry.preset_id || "(missing)")}</td>
@@ -334,7 +443,11 @@ export function createHtmlReport(report) {
     <li>File parse errors: ${report.summary.fileErrors}</li>
     <li>Duplicate preset IDs: ${report.summary.duplicatePresetIds}</li>
     <li>Duplicate preset names: ${report.summary.duplicatePresetNames}</li>
+    <li>Broken local cab/IR references: ${report.summary.brokenCabOrIrReferences}</li>
     <li>Invalid categories: ${escapeHtml(invalidCategories)}</li>
+    <li>Invalid gain levels: ${escapeHtml(invalidGainLevels)}</li>
+    <li>Missing author/version: ${report.summary.missingAuthorOrVersion}</li>
+    <li>Release-readiness warnings: ${report.summary.releaseReadinessWarnings}</li>
     <li>Suspicious claim warnings: ${report.summary.suspiciousClaimWarnings}</li>
   </ul>
   <table>
@@ -363,19 +476,28 @@ export function buildPresetValidationReport({ files, presets, fileErrors, genera
     names: new Map(),
     duplicatePresetIds: new Set(),
     duplicatePresetNames: new Set(),
+    brokenCabOrIrReferences: new Set(),
     invalidCategories: new Set(),
+    invalidGainLevels: new Set(),
+    missingAuthorOrVersion: new Set(),
+    releaseReadinessWarnings: new Set(),
+    suspiciousClaimWarnings: new Set(),
     sourceFile: "",
+    sourcePath: "",
+    presetDir: scannedPresetDir,
     sourceIndex: 0
   };
 
   const validatedPresets = presets.map((entry) => {
     context.sourceFile = entry.sourceFile;
+    context.sourcePath = entry.sourcePath ?? path.join(scannedPresetDir, entry.sourceFile);
     context.sourceIndex = entry.sourceIndex;
     const validation = validatePreset(entry.preset, context);
 
     if (isObject(entry.preset)) {
-      if (isNonEmptyString(entry.preset.preset_id) && !context.ids.has(entry.preset.preset_id)) {
-        context.ids.set(entry.preset.preset_id, sourceRef(entry));
+      const normalizedPresetId = normalizePresetId(entry.preset.preset_id);
+      if (isNonEmptyString(entry.preset.preset_id) && !context.ids.has(normalizedPresetId)) {
+        context.ids.set(normalizedPresetId, sourceRef(entry));
       }
 
       const normalizedName = normalizeName(entry.preset.name);
@@ -395,10 +517,7 @@ export function buildPresetValidationReport({ files, presets, fileErrors, genera
     };
   });
 
-  const suspiciousClaimWarnings = validatedPresets.reduce(
-    (total, preset) => total + preset.warnings.filter((warning) => warning.includes("Suspicious claim language")).length,
-    0
-  );
+  const suspiciousClaimWarnings = context.suspiciousClaimWarnings.size;
 
   return {
     schemaVersion: 1,
@@ -419,7 +538,11 @@ export function buildPresetValidationReport({ files, presets, fileErrors, genera
       presetsWithWarnings: validatedPresets.filter((preset) => preset.warnings.length > 0).length,
       duplicatePresetIds: context.duplicatePresetIds.size,
       duplicatePresetNames: context.duplicatePresetNames.size,
+      brokenCabOrIrReferences: context.brokenCabOrIrReferences.size,
       invalidCategories: Array.from(context.invalidCategories).sort(),
+      invalidGainLevels: Array.from(context.invalidGainLevels).sort(),
+      missingAuthorOrVersion: context.missingAuthorOrVersion.size,
+      releaseReadinessWarnings: context.releaseReadinessWarnings.size,
       suspiciousClaimWarnings
     }
   };

@@ -39,7 +39,7 @@ AMP_SIM_LAB presets are validation metadata for the product. They do not replace
 - `input_gain`: finite dB input trim.
 - `output_gain`: finite dB output trim.
 - `amp_section_settings`: amp controls and values.
-- `cab_or_ir_reference`: non-empty factory cab id or allowed IR reference. No unlicensed IRs.
+- `cab_or_ir_reference`: non-empty factory cab id or explicit local IR/cab file reference. Local references must point to an existing `.wav`, `.aif`, `.aiff`, or `.flac` file and still require founder ownership/licensing review.
 - `effects_settings`: pedal/FX controls and values.
 - `cpu_cost_estimate`: `low`, `medium`, `high`, or `unknown`.
 - `loudness_target`: technical target range for validation.
@@ -54,7 +54,13 @@ The preset validator writes JSON and HTML summaries with:
 - file parse error count
 - preset error and warning counts
 - duplicate preset id and duplicate preset name counts
+- broken local cab/IR reference count
 - invalid category list
+- invalid gain level list
+- missing author/version count
+- release-readiness warning count
 - suspicious claim warning count
 
 Suspicious claim warnings are generic metadata warnings for wording such as brand, artist, song, album, signature, official, clone, emulation, or sound-alike claims. They are report-only warnings so the founder can review language without agents tuning or renaming approved presets.
+
+Release-readiness warnings are report-only reminders for items such as missing public-release disclaimers, non-semver draft versions, local IR/cab references that require founder ownership review, and presets explicitly marked as not approved for public release.
