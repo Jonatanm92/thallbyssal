@@ -266,6 +266,23 @@ After real render works, define these next tasks:
 - `PRESET_AUDITION_SELECTION`: choose the first focused set of mix-ready rhythm presets based on founder listening feedback and measured render behavior.
 - `THALLBYSSAL_POSITIONING_DRAFT`: draft public-safe positioning around modern low-tuned metal, tight attack, fast gate feel, and mix-ready workflow without competitor, artist, amp, plugin, model, product, or brand claims.
 
+## Future Input Match / DI Calibration Feed
+
+After real render works, the same founder-owned DI files and generated render metadata should feed a future Input Match or DI Calibration workflow. This future workflow should analyze the dry DI before render, record peak level, RMS/loudness, clipping, noise floor, and pick attack/transient strength, then explain whether the input is too weak, too hot, noisy, clipped, or ready for preset audition.
+
+The real render connection should preserve enough metadata for that future workflow:
+
+- Input DI path and slot name.
+- Input DI hash.
+- Sample rate and channel count.
+- Preset path and preset id.
+- Renderer provenance.
+- Processed output path.
+- Metrics path.
+- Safety status for DI and DSP/core immutability.
+
+This linkage is planning only. Do not implement Input Match or DI Calibration as part of the real render connection unless the founder explicitly approves a later implementation task.
+
 ## Success Criteria
 
 - At least 3 real `processed.wav` files are created from founder-owned DI files.
