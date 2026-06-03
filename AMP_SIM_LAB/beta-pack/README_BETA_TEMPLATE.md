@@ -14,6 +14,9 @@ Placeholder:
 - `CHANGELOG_BETA.md`
 - `KNOWN_ISSUES.md`
 - `FEEDBACK_FORM.md`
+- `PRIVATE_BETA_LISTENING_PAGE.md`
+- `BETA_FEEDBACK_QUESTIONS.md`
+- `BETA_LISTENING_INSTRUCTIONS.md`
 - `BETA_PACK_MANIFEST.json`
 - Optional beta binary only if founder-approved build notes explicitly include one.
 
