@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { buildPresetValidationReport, createHtmlReport } from "./validate-presets.mjs";
 
 function validPreset(overrides = {}) {
@@ -27,17 +30,19 @@ function validPreset(overrides = {}) {
   };
 }
 
-function reportFor(presets) {
+function reportFor(presets, options = {}) {
+  const presetDir = options.presetDir ?? "AMP_SIM_LAB/presets";
   return buildPresetValidationReport({
     files: ["synthetic-presets.json"],
     fileErrors: [],
     presets: presets.map((preset, sourceIndex) => ({
       sourceFile: "synthetic-presets.json",
+      sourcePath: options.sourcePath ?? path.join(presetDir, "synthetic-presets.json"),
       sourceIndex,
       preset
     })),
     generatedAt: "2026-06-02T00:00:00.000Z",
-    presetDir: "AMP_SIM_LAB/presets"
+    presetDir
   });
 }
 
@@ -71,17 +76,18 @@ test("preset validation rejects missing, empty, and wrongly typed required field
   assert.match(messages, /notes must be a non-empty string/);
   assert.match(messages, /loudness_target.peak_dbfs_max must be a finite number/);
   assert.match(messages, /loudness_target.rms_dbfs_range must be ordered from quieter to louder/);
+  assert.equal(report.summary.missingAuthorOrVersion, 1);
 });
 
-test("preset validation reports duplicate IDs and names with source locations", () => {
+test("preset validation reports normalized duplicate IDs and names with source locations", () => {
   const report = reportFor([
     validPreset({ preset_id: "duplicate-id", name: "Duplicate Name" }),
-    validPreset({ preset_id: "duplicate-id", name: " duplicate name " })
+    validPreset({ preset_id: " Duplicate-ID ", name: " duplicate name " })
   ]);
 
   const duplicateErrors = report.presets.flatMap((preset) => preset.errors).join("\n");
 
-  assert.match(duplicateErrors, /Duplicate preset_id "duplicate-id" also used by synthetic-presets.json#0/);
+  assert.match(duplicateErrors, /Duplicate preset_id " Duplicate-ID " also used by synthetic-presets.json#0/);
   assert.match(duplicateErrors, /Duplicate preset name " duplicate name " also used by synthetic-presets.json#0/);
   assert.equal(report.summary.duplicatePresetIds, 1);
   assert.equal(report.summary.duplicatePresetNames, 1);
@@ -99,12 +105,24 @@ test("preset validation records invalid categories in the JSON summary", () => {
   assert.deepEqual(report.summary.invalidCategories, ["cover-tone"]);
 });
 
+test("preset validation records invalid gain levels in the JSON summary", () => {
+  const report = reportFor([
+    validPreset({
+      preset_id: "invalid-gain-preset",
+      gain_level: "gainy"
+    })
+  ]);
+
+  assert.match(report.presets[0].errors.join("\n"), /gain_level must be one of/);
+  assert.deepEqual(report.summary.invalidGainLevels, ["gainy"]);
+});
+
 test("preset validation warns on suspicious brand, artist, song, album, and trademark-like claims", () => {
   const report = reportFor([
     validPreset({
-      preset_id: "signature-artist-song-preset",
+      preset_id: "internal-claim-preset",
       name: "Official Brand Signature",
-      notes: "Artist-style setting for a song and album reference. Not approved for public release."
+      notes: "Internal setting with artist, song, and album claim language. Not approved for public release."
     })
   ]);
 
@@ -112,6 +130,61 @@ test("preset validation warns on suspicious brand, artist, song, album, and trad
 
   assert.match(warnings, /Suspicious claim language/);
   assert.equal(report.summary.suspiciousClaimWarnings, 1);
+});
+
+test("preset validation rejects broken explicit local cab or IR references", () => {
+  const presetDir = path.join(os.tmpdir(), "amp-sim-lab-preset-validation");
+  const report = reportFor(
+    [
+      validPreset({
+        preset_id: "broken-local-ir-reference",
+        cab_or_ir_reference: "irs/missing.wav"
+      })
+    ],
+    { presetDir, sourcePath: path.join(presetDir, "synthetic-presets.json") }
+  );
+
+  const errors = report.presets[0].errors.join("\n");
+
+  assert.match(errors, /Local cab\/IR reference "irs\/missing.wav" does not exist/);
+  assert.equal(report.summary.brokenCabOrIrReferences, 1);
+});
+
+test("preset validation allows existing local cab or IR references with release warnings", async () => {
+  const presetDir = await fs.mkdtemp(path.join(os.tmpdir(), "amp-sim-lab-preset-validation-"));
+  const irDir = path.join(presetDir, "irs");
+  const irPath = path.join(irDir, "owned-test-ir.wav");
+  await fs.mkdir(irDir, { recursive: true });
+  await fs.writeFile(irPath, Buffer.from([1, 2, 3, 4]));
+
+  const report = reportFor(
+    [
+      validPreset({
+        preset_id: "existing-local-ir-reference",
+        cab_or_ir_reference: "local:irs/owned-test-ir.wav"
+      })
+    ],
+    { presetDir, sourcePath: path.join(presetDir, "synthetic-presets.json") }
+  );
+
+  assert.equal(report.presets[0].errors.length, 0);
+  assert.match(report.presets[0].warnings.join("\n"), /Local cab\/IR reference exists/);
+});
+
+test("preset validation tracks release-readiness warnings separately", () => {
+  const report = reportFor([
+    validPreset({
+      preset_id: "release-readiness-warning-preset",
+      version: "draft",
+      notes: "Internal draft preset."
+    })
+  ]);
+
+  const warnings = report.presets[0].warnings.join("\n");
+
+  assert.match(warnings, /version should use semver-like/);
+  assert.match(warnings, /not approved for public release/);
+  assert.equal(report.summary.releaseReadinessWarnings, 2);
 });
 
 test("HTML report escapes preset metadata and includes validation summary details", () => {
@@ -129,5 +202,8 @@ test("HTML report escapes preset metadata and includes validation summary detail
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /Invalid categories/);
   assert.match(html, /cover-tone/);
+  assert.match(html, /Invalid gain levels/);
+  assert.match(html, /Broken local cab\/IR references/);
+  assert.match(html, /Release-readiness warnings/);
   assert.match(html, /Suspicious claim warnings/);
 });
