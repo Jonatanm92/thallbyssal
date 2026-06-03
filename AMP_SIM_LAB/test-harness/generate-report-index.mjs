@@ -1,15 +1,19 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { generatedRoot, reportsDir } from "./lab-paths.mjs";
+import { writeDemoClipPackReports } from "./demo-clip-pack.mjs";
 
 const reportIndexPath = path.join(reportsDir, "index.html");
 
 const reportLinks = [
   ["Audio Metrics", "audio-metrics.html", "Peak, RMS, clipping, sample rate, and file format checks for founder-owned DI files."],
   ["DI Validation", "di-validation.html", "Starter DI readiness, missing files, clipping, noise floor, and naming recommendations."],
+  ["Input Match", "input-match.html", "Report-only DI calibration guidance for input level, clipping, noise, gain range, and gate starting point."],
   ["Audition Matrix", "audition-matrix.html", "Planned DI/preset render jobs for future offline audition rendering."],
+  ["Demo Clip Pack", "demo-clips-index.html", "Internal founder review index for existing real-render clips, metrics, use cases, and rating placeholders."],
   ["Demo Audition", "demo-audition.html", "Internal-only dry-run and local render clip viewer for audition jobs."],
   ["Render Results", "render-results.html", "Dry-run or real-render hook output, processed WAV locations, and render metrics."],
+  ["Preset Audition Selection", "preset-audition-selection.html", "Founder-only worksheet for rating audition renders and marking beta-demo candidates without auto-ranking tone."],
   ["Render Safety", "render-safety.html", "Local safety validation for output paths, input immutability, GUI automation, and DSP edit flags."],
   ["Baseline Compare", "baseline-compare.html", "Internal regression baseline comparison for render status and report-only technical metrics."],
   ["Preset Validation", "preset-validation.html", "Preset schema, category, naming, and safety checks."],
@@ -85,7 +89,7 @@ function createHtml(rows, generatedAt) {
 <body>
   <h1>AMP_SIM_LAB Reports</h1>
   <p>Generated: ${generatedAt}</p>
-  <p>Local-only report index for Thallbyssal validation. Public release is not approved by this page.</p>
+  <p>Local-only report index for Thallbyssal validation. External sharing is not approved by this page.</p>
   <table>
     <thead>
       <tr>
@@ -103,6 +107,7 @@ function createHtml(rows, generatedAt) {
 }
 
 async function main() {
+  await writeDemoClipPackReports();
   await fs.mkdir(reportsDir, { recursive: true });
   const rows = [];
 

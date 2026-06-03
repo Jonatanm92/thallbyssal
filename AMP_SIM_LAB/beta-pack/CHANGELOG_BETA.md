@@ -7,4 +7,4 @@
 - Added preset schema and preset validator.
 - Added internal placeholder preset metadata.
 - Added beta packet placeholders.
-
+- Added private beta listening page, feedback questions, and listening instructions templates for founder-approved clips.

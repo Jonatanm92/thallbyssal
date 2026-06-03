@@ -437,6 +437,39 @@ test("branch safety validator allows lab guardrail policy terms but still reject
   assert.match(messages, /Fake render\/copy indicator/);
 });
 
+test("branch safety validator allows internal report generator negative public-system guardrail text", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "AMP_SIM_LAB/test-harness/generate-report-index.mjs", source: "branch" }
+    ],
+    fileTexts: new Map([
+      [
+        "AMP_SIM_LAB/test-harness/generate-report-index.mjs",
+        "const note = 'Local-only report index. Public release is not approved by this page. No checkout, licensing server, telemetry, analytics, auth, cloud sync, or DRM has been added.';"
+      ]
+    ])
+  });
+
+  assert.deepEqual(validation.errors, []);
+});
+
+test("branch safety validator still blocks public-system implementation patterns inside internal generators", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "AMP_SIM_LAB/test-harness/generate-report-index.mjs", source: "branch" }
+    ],
+    fileTexts: new Map([
+      [
+        "AMP_SIM_LAB/test-harness/generate-report-index.mjs",
+        "export function startCheckout() { return { telemetry: true, auth: 'oauth', licenseKey: process.env.LICENSE_KEY }; }"
+      ]
+    ])
+  });
+
+  const messages = validation.errors.join("\n");
+  assert.match(messages, /Public-system implementation indicator/);
+});
+
 test("offline renderer records and validates the actual heavy signal chain", () => {
   const source = fs.readFileSync(path.join(repoRoot, "native", "juce-audio-engine", "Source", "OfflineRendererMain.cpp"), "utf8");
 
