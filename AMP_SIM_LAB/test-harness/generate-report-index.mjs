@@ -10,6 +10,7 @@ const reportLinks = [
   ["Audition Matrix", "audition-matrix.html", "Planned DI/preset render jobs for future offline audition rendering."],
   ["Demo Audition", "demo-audition.html", "Internal-only dry-run and local render clip viewer for audition jobs."],
   ["Render Results", "render-results.html", "Dry-run or real-render hook output, processed WAV locations, and render metrics."],
+  ["Preset Audition Selection", "preset-audition-selection.html", "Founder-only worksheet for rating audition renders and marking beta-demo candidates without auto-ranking tone."],
   ["Render Safety", "render-safety.html", "Local safety validation for output paths, input immutability, GUI automation, and DSP edit flags."],
   ["Baseline Compare", "baseline-compare.html", "Internal regression baseline comparison for render status and report-only technical metrics."],
   ["Preset Validation", "preset-validation.html", "Preset schema, category, naming, and safety checks."],
@@ -85,7 +86,7 @@ function createHtml(rows, generatedAt) {
 <body>
   <h1>AMP_SIM_LAB Reports</h1>
   <p>Generated: ${generatedAt}</p>
-  <p>Local-only report index for Thallbyssal validation. Public release is not approved by this page.</p>
+  <p>Local-only report index for Thallbyssal validation. External launch is not approved by this page.</p>
   <table>
     <thead>
       <tr>

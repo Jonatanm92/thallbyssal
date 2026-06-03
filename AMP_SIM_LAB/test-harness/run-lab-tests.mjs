@@ -10,6 +10,7 @@ const tests = [
   "di-validation.test.mjs",
   "founder-assets.test.mjs",
   "ir-reference-audition.test.mjs",
+  "preset-audition-selection.test.mjs",
   "preset-validation.test.mjs",
   "reference-feedback-plan.test.mjs",
   "reference-listening-pack.test.mjs",
