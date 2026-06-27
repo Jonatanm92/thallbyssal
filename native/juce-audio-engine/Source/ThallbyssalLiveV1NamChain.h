@@ -10,6 +10,12 @@ class ThallbyssalLiveV1NamChain
 public:
     struct Config
     {
+        enum class ProbeVariant
+        {
+            liveV1,
+            a2FullRigRecoveryV0
+        };
+
         juce::File bigBottomModel;
         juce::File gojiraModel;
         juce::File bldogIr;
@@ -20,6 +26,7 @@ public:
         double gojiraGainDb = -19.775606700373558;
         double edgeGainDb = -15.665085331251513;
         double finalGainDb = -0.529763242394424;
+        ProbeVariant probeVariant = ProbeVariant::liveV1;
 
         static Config localPrivateDefaults();
     };

@@ -79,6 +79,21 @@ Biquad makeHighShelf(double sampleRate, double gainDb, double frequency, double 
     return { b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0 };
 }
 
+Biquad makeHighPass(double sampleRate, double frequency, double q)
+{
+    const auto w0 = 2.0 * pi * frequency / sampleRate;
+    const auto alpha = std::sin(w0) / (2.0 * q);
+    const auto cosw = std::cos(w0);
+    const auto b0 = (1.0 + cosw) / 2.0;
+    const auto b1 = -(1.0 + cosw);
+    const auto b2 = (1.0 + cosw) / 2.0;
+    const auto a0 = 1.0 + alpha;
+    const auto a1 = -2.0 * cosw;
+    const auto a2 = 1.0 - alpha;
+
+    return { b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0 };
+}
+
 struct GrinderState
 {
     double highpassState = 0.0;
@@ -130,6 +145,13 @@ double softDensitySample(double input, double amount)
     const auto wet = 0.18 * amount;
     const auto saturated = std::tanh(input * drive) / normaliser;
     return dry * input + wet * saturated;
+}
+
+double softClipV2Sample(double input)
+{
+    constexpr auto drive = 1.18;
+    const auto normaliser = std::tanh(drive);
+    return std::tanh(input * drive) / normaliser;
 }
 
 bool checkFile(const juce::File& file, const char* label, juce::String& error)
@@ -294,6 +316,16 @@ void applyDoubleOverride(const juce::StringPairArray& overrides, const char* key
         value = parsed;
 }
 
+void applyProbeVariantOverride(const juce::StringPairArray& overrides,
+                               ThallbyssalLiveV1NamChain::Config::ProbeVariant& value)
+{
+    const auto text = overrideValue(overrides, "probeVariant").trim().toLowerCase();
+    if (text == "a2-full-rig-v0" || text == "a2fullrigrecoveryv0")
+        value = ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV0;
+    else if (text == "live-v1" || text == "livev1")
+        value = ThallbyssalLiveV1NamChain::Config::ProbeVariant::liveV1;
+}
+
 juce::File choosePrivateAssetRoot(const juce::StringPairArray& overrides)
 {
     const auto configRoot = overrideValue(overrides, "assetRoot");
@@ -352,6 +384,10 @@ struct ThallbyssalLiveV1NamChain::Impl
     Biquad hlbstHigh;
     Biquad centerMid;
     Biquad sideMid;
+    Biquad centerBody;
+    Biquad centerPick;
+    Biquad sideHighPass;
+    Biquad sidePick;
 
     std::vector<double> input;
     std::vector<double> pre;
@@ -382,8 +418,13 @@ struct ThallbyssalLiveV1NamChain::Impl
         bldogHigh = makeHighShelf(sampleRate, 3.0, 4300.0, 0.707);
         hlbstMid = makePeak(sampleRate, 2.0, 1200.0, 0.9);
         hlbstHigh = makeHighShelf(sampleRate, 2.0, 4300.0, 0.707);
-        centerMid = makePeak(sampleRate, 1.5, 1400.0, 0.9);
-        sideMid = makePeak(sampleRate, 1.5, 1400.0, 0.9);
+        const auto a2Recovery = config.probeVariant == Config::ProbeVariant::a2FullRigRecoveryV0;
+        centerMid = makePeak(sampleRate, a2Recovery ? 1.65 : 1.5, 1400.0, 0.9);
+        sideMid = makePeak(sampleRate, a2Recovery ? 1.65 : 1.5, 1400.0, 0.9);
+        centerBody = makePeak(sampleRate, 1.15, 260.0, 0.75);
+        centerPick = makePeak(sampleRate, 0.75, 2350.0, 1.1);
+        sideHighPass = makeHighPass(sampleRate, 95.0, 0.707);
+        sidePick = makePeak(sampleRate, 0.45, 2350.0, 1.1);
     }
 
     bool runNam(thallbyssal::NamRuntimeAdapter& adapter, int numSamples, juce::String& error)
@@ -479,6 +520,7 @@ ThallbyssalLiveV1NamChain::Config ThallbyssalLiveV1NamChain::Config::localPrivat
     applyDoubleOverride(overrides, "gojiraGainDb", config.gojiraGainDb);
     applyDoubleOverride(overrides, "edgeGainDb", config.edgeGainDb);
     applyDoubleOverride(overrides, "finalGainDb", config.finalGainDb);
+    applyProbeVariantOverride(overrides, config.probeVariant);
     return config;
 }
 
@@ -624,6 +666,7 @@ bool ThallbyssalLiveV1NamChain::process(const float* monoInput,
     const auto bldogGain = decibelsToGain(impl->config.bldogGainDb);
     const auto edgeGain = decibelsToGain(impl->config.edgeGainDb);
     const auto finalGain = decibelsToGain(impl->config.finalGainDb);
+    const auto a2Recovery = impl->config.probeVariant == Config::ProbeVariant::a2FullRigRecoveryV0;
 
     for (int sample = 0; sample < numSamples; ++sample)
     {
@@ -631,13 +674,32 @@ bool ThallbyssalLiveV1NamChain::process(const float* monoInput,
         const auto bldogMatched = impl->bldog[index] * bldogGain;
         impl->edge[index] = (impl->hlbst[index] * 0.88 + impl->gojira[index] * 0.12) * edgeGain;
 
-        auto center = 0.64 * bldogMatched + 0.36 * impl->edge[index];
+        auto center = (a2Recovery ? 0.68 : 0.64) * bldogMatched
+            + (a2Recovery ? 0.32 : 0.36) * impl->edge[index];
         auto side = bldogMatched - impl->edge[index];
         center = impl->centerMid.process(center);
-        side = impl->sideMid.process(side) * 0.22;
+        side = impl->sideMid.process(side);
 
-        const auto left = (center + side) * finalGain;
-        const auto right = (center - side) * finalGain;
+        if (a2Recovery)
+        {
+            center = impl->centerBody.process(center);
+            center = impl->centerPick.process(center);
+            side = impl->sideHighPass.process(side);
+            side = impl->sidePick.process(side) * 0.255;
+        }
+        else
+        {
+            side *= 0.22;
+        }
+
+        auto left = (center + side) * finalGain;
+        auto right = (center - side) * finalGain;
+
+        if (a2Recovery)
+        {
+            left = softClipV2Sample(left);
+            right = softClipV2Sample(right);
+        }
 
         if (!std::isfinite(left) || !std::isfinite(right))
         {

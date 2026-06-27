@@ -27,6 +27,7 @@ struct Options
     int blockSize = 128;
     double startSeconds = 0.0;
     double durationSeconds = 0.0;
+    juce::String probeVariant = "live-v1";
     juce::String safetyMode = "none";
     double safetyCeilingDb = -1.0;
     double safetyDrive = 2.0;
@@ -63,6 +64,7 @@ void printUsage()
               << "  [--block-size <samples>]\n"
               << "  [--start-seconds <seconds>]\n"
               << "  [--duration-seconds <seconds>]\n"
+              << "  [--probe-variant live-v1|a2-full-rig-v0]\n"
               << "  [--safety-mode none|peak-normalize|hard-ceiling|soft-ceiling]\n"
               << "  [--safety-ceiling-db <dbfs>]\n"
               << "  [--safety-drive <amount>]\n";
@@ -91,6 +93,10 @@ bool parseOptions(int argc, char* argv[], Options& options, juce::String& error)
     const auto durationSecondsValue = getArgumentValue(argc, argv, "--duration-seconds");
     if (durationSecondsValue.isNotEmpty())
         options.durationSeconds = durationSecondsValue.getDoubleValue();
+
+    const auto probeVariantValue = getArgumentValue(argc, argv, "--probe-variant");
+    if (probeVariantValue.isNotEmpty())
+        options.probeVariant = probeVariantValue.trim().toLowerCase();
 
     const auto safetyModeValue = getArgumentValue(argc, argv, "--safety-mode");
     if (safetyModeValue.isNotEmpty())
@@ -125,6 +131,13 @@ bool parseOptions(int argc, char* argv[], Options& options, juce::String& error)
     if (options.startSeconds < 0.0 || options.durationSeconds < 0.0)
     {
         error = "Start and duration must not be negative.";
+        return false;
+    }
+
+    if (options.probeVariant != "live-v1"
+        && options.probeVariant != "a2-full-rig-v0")
+    {
+        error = "Unsupported probe variant: " + options.probeVariant;
         return false;
     }
 
@@ -206,6 +219,19 @@ float findStereoPeak(const std::vector<float>& left, const std::vector<float>& r
     return peak;
 }
 
+const char* probeVariantMetadata(const ThallbyssalLiveV1NamChain::Config& config)
+{
+    switch (config.probeVariant)
+    {
+        case ThallbyssalLiveV1NamChain::Config::ProbeVariant::liveV1:
+            return "live-v1";
+        case ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV0:
+            return "a2-full-rig-v0";
+    }
+
+    return "unknown";
+}
+
 float softCeilingSample(float sample, float ceiling, double drive)
 {
     const auto absolute = std::abs(sample);
@@ -275,7 +301,11 @@ void writeMetadata(const juce::File& metadataFile,
     metadata->setProperty("schemaVersion", 1);
     metadata->setProperty("renderer", "ThallbyssalLiveV1Probe");
     metadata->setProperty("dspEntrypoint", "ThallbyssalLiveV1NamChain::process");
-    metadata->setProperty("activeSoundTarget", "Live V1 source recovery probe - not Current Best parity");
+    metadata->setProperty("probeVariant", probeVariantMetadata(config));
+    metadata->setProperty("activeSoundTarget",
+                          config.probeVariant == ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV0
+                              ? "A2 full-rig recovery probe v0 - not Current Best parity"
+                              : "Live V1 source recovery probe - not Current Best parity");
     metadata->setProperty("inputWav", options.input.getFullPathName());
     metadata->setProperty("processedWav", processedWav.getFullPathName());
     metadata->setProperty("sampleRate", options.sampleRate);
@@ -312,6 +342,11 @@ void writeMetadata(const juce::File& metadataFile,
     metadata->setProperty("irsLoaded", status.irsLoaded);
     metadata->setProperty("ready", status.ready);
     metadata->setProperty("v1Formula", "center=0.64*BLDOG+0.36*edge; side=0.22*(BLDOG-edge); +1.5dB@1400Hz,Q=0.9; final recovered gain; no V2 softclip.");
+    metadata->setProperty("a2FullRigV0Formula", "center=0.68*BLDOG+0.32*edge; center +1.65dB@1400,+1.15dB@260,+0.75dB@2350; side +1.65dB@1400,HP95,+0.45dB@2350,*0.255; final gain then V2 tanh softclip drive 1.18.");
+    metadata->setProperty("expectedCurrentBestMarker", "CURRENT BEST A2 FULL-RIG / GATE V0.7 / OUT+0.3 / PG8 / TW-OFF / CF2 / GS1 / PSET2 / BST1 / CHF1 / CHUG-UI2");
+    metadata->setProperty("recoveredMarkerComponents", config.probeVariant == ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV0
+        ? "A2_FULL_RIG_PROBE_V0; CF2-hypothesis; output-softclip-hypothesis; not PSET2/BST1/CHF1/CHUG-UI2 parity"
+        : "LIVE_V1_PROBE; not A2 full-rig parity");
     metadata->setProperty("note", "Internal local live V1 NAM runtime probe. This validates source recovery plumbing only; it does not prove Current Best tone parity. No UI change. No DI modification. No asset bundling.");
 
     metadataFile.replaceWithText(juce::JSON::toString(juce::var(metadata.release()), true));
@@ -363,6 +398,11 @@ int main(int argc, char* argv[])
 
     ThallbyssalLiveV1NamChain chain;
     auto config = ThallbyssalLiveV1NamChain::Config::localPrivateDefaults();
+    if (options.probeVariant == "a2-full-rig-v0")
+        config.probeVariant = ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV0;
+    else
+        config.probeVariant = ThallbyssalLiveV1NamChain::Config::ProbeVariant::liveV1;
+
     if (!chain.prepare(config, options.sampleRate, options.blockSize, error))
     {
         std::cerr << error << "\n";

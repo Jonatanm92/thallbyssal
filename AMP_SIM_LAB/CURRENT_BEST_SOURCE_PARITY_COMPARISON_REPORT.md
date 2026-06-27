@@ -14,10 +14,12 @@ The 2026-06-27 windowed pass added `--start-seconds` and `--duration-seconds` su
 
 The duration mismatch is now removed for the compared files.
 
-Two local-only passes now exist:
+Four local-only passes now exist:
 
 1. Live V1 default-gain probe: roughly 29-30 dB lower RMS than the known-good Current Best baseline.
 2. A2-manifest gain override probe: roughly level-aligned or slightly louder than the known-good Current Best baseline, but clips heavily and does not match the beta spectral balance.
+3. Diagnostic A2 output safety probe: removes clipping, but remains too mid/high-forward or too weak depending on safety mode.
+4. A2 full-rig recovery probe v0: adds nearby V2 center/side shaping and softclip evidence, but still remains too loud in RMS and too mid/high-forward compared with the known-good beta.
 
 This narrows the source recovery blocker: the missing Current Best gain staging is now partially identified, but the raw probe still lacks the product safety/output/polish behavior needed to match the known-good beta.
 
@@ -150,11 +152,46 @@ Interpretation:
 - `hard-ceiling` and `soft-ceiling` prove that clipping can be removed while staying loud, but the recovered probe remains too mid/high-forward versus the known-good beta.
 - The source parity blocker is therefore not just missing peak safety. The missing Current Best behavior also includes output polish, EQ/headroom calibration, or a more specific A2 full-rig chain shape.
 
+### A2 Full-Rig Recovery Probe v0
+
+This pass added `--probe-variant a2-full-rig-v0` to the local-only `ThallbyssalLiveV1Probe`. It keeps `live-v1` as the default and adds a separate recovery hypothesis based on nearby V2 audition evidence:
+
+- center blend: `0.68 * BLDOG + 0.32 * edge`;
+- extra center shaping around `1400 Hz`, `260 Hz`, and `2350 Hz`;
+- side shaping with `95 Hz` high-pass and `2350 Hz` lift;
+- side level `0.255`;
+- V2 tanh softclip drive `1.18`.
+
+No-safety result:
+
+- Completed renders: `4/4`.
+- Musical material still clipped heavily.
+- This is not a usable parity candidate.
+
+Soft-ceiling result:
+
+- Completed renders: `4/4`.
+- Clipped samples: `0`.
+- Comparable pairs: `4/4`.
+- Generated report: `D:\CodexBuilds\thallbyssal-lab\reports\current-best-source-parity-comparison.md`.
+
+| Pair | RMS delta | Low delta | Low-mid delta | Mid delta | High delta | Clips |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| DI Boostalizer | `+3.04 dB` | `0.00 dB` | `+2.29 dB` | `+6.00 dB` | `+7.90 dB` | `0` |
+| Pick Attack | `+4.58 dB` | `+1.03 dB` | `+3.73 dB` | `+6.39 dB` | `+6.38 dB` | `0` |
+| Low Tuned Chugs | `+2.72 dB` | `+0.02 dB` | `+2.09 dB` | `+5.86 dB` | `+6.54 dB` | `0` |
+
+Interpretation:
+
+- A2 v0 is closer in low-band level than earlier peak-normalize output, but it is still far too mid/high-forward.
+- The missing Current Best behavior is not explained by V2 center/side shaping and softclip alone.
+- The next recovery pass should focus on product polish/output filtering/headroom around the A2 full-rig path, not another standalone limiter.
+
 ## Conclusion
 
 The source-built recovery probe is not source-parity with the known-good Current Best beta.
 
-The previous full-file versus 6-second duration mismatch has been removed. The first windowed pass proved the older Live V1 probe gain staging is far too quiet. The A2-manifest gain override pass proved the missing high-level gain direction is real, but it also proved that directly applying those gains in the raw Live V1 probe is unsafe: it clips tens of thousands of samples and overstates mid/high energy relative to the known-good beta. The diagnostic output safety pass removed clipping in all tested variants, but it did not recover the known-good beta balance.
+The previous full-file versus 6-second duration mismatch has been removed. The first windowed pass proved the older Live V1 probe gain staging is far too quiet. The A2-manifest gain override pass proved the missing high-level gain direction is real, but it also proved that directly applying those gains in the raw Live V1 probe is unsafe: it clips tens of thousands of samples and overstates mid/high energy relative to the known-good beta. The diagnostic output safety pass removed clipping in all tested variants, but it did not recover the known-good beta balance. The A2 full-rig recovery v0 pass added the nearest known V2 center/side and softclip evidence, but still measured much too loud and too mid/high-forward.
 
 The remaining blocker is no longer "unknown level mismatch." It is now narrower:
 

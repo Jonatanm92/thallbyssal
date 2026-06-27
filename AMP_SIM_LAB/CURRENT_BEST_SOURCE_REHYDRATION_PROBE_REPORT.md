@@ -31,6 +31,10 @@ This pass adds a narrow NAM-runtime source recovery probe. It does not claim Cur
   - `--safety-mode hard-ceiling`
   - `--safety-mode soft-ceiling`
   These modes are diagnostic render/export variants only. They do not change product DSP, plugin defaults, the known-good beta, or any realtime audio callback path.
+- Added probe-only A2 full-rig recovery variant:
+  - `--probe-variant live-v1`
+  - `--probe-variant a2-full-rig-v0`
+  The default remains `live-v1`. The A2 v0 variant is a source-recovery hypothesis only and is not routed into the plugin.
 
 ## Safety Boundaries
 
@@ -108,6 +112,35 @@ Diagnostic A2 output safety pass:
   - `soft-ceiling`: about `0.99` linear.
 - Caveat: clipping was removed, but parity was not achieved. Peak-normalize became too quiet in RMS/lows, while hard/soft ceiling remained too high in mid/high energy compared with the known-good beta.
 
+A2 full-rig recovery probe v0:
+
+- Build target: `ThallbyssalLiveV1Probe`.
+- Output executable: `D:\CodexBuilds\thallbyssal-source-rehydration-nam\ThallbyssalLiveV1Probe_artefacts\Release\ThallbyssalLiveV1Probe.exe`.
+- Variant flag: `--probe-variant a2-full-rig-v0`.
+- No-safety render root:
+  - `D:\CodexBuilds\thallbyssal-lab\current-best-source-rehydration\a2-full-rig-v0-20260628T005143`
+- Soft-ceiling render root:
+  - `D:\CodexBuilds\thallbyssal-lab\current-best-source-rehydration\a2-full-rig-v0-soft-ceiling-20260628T005235`
+- Compared DIs:
+  - `DI Boostalizer.wav`
+  - `PICK ATTACK.wav`
+  - `low-tuned-chugs.wav`
+  - `noise.wav`
+- A2 v0 no-safety result:
+  - Completed renders: `4/4`.
+  - Non-finite samples: none reported by the renderer.
+  - Clipping remained severe on musical material.
+- A2 v0 soft-ceiling result:
+  - Completed renders: `4/4`.
+  - Clipped samples: `0`.
+  - Comparable pairs in source parity report: `4/4`.
+  - Report: `D:\CodexBuilds\thallbyssal-lab\reports\current-best-source-parity-comparison.md`.
+- Soft-ceiling deltas versus known-good beta:
+  - DI Boostalizer: RMS `+3.04 dB`, low-mid `+2.29 dB`, high `+7.90 dB`.
+  - Pick Attack: RMS `+4.58 dB`, low-mid `+3.73 dB`, high `+6.38 dB`.
+  - Low Tuned Chugs: RMS `+2.72 dB`, low-mid `+2.09 dB`, high `+6.54 dB`.
+- Caveat: A2 v0 confirms that nearby V2 center/side and softclip evidence is still insufficient. The probe remains much too mid/high-forward and too loud in RMS compared with the known-good beta even after clipping is removed.
+
 ## What This Proves
 
 - The local NeuralAmpModelerCore checkout can be found by CMake.
@@ -118,6 +151,8 @@ Diagnostic A2 output safety pass:
 - The recovered Live V1 probe can now ingest common historical DI sample rates by resampling probe input only.
 - The recovered Live V1 probe can test local-only gain hypotheses from private config without changing product behavior.
 - The recovered Live V1 probe can now test diagnostic output safety hypotheses around the high-gain A2 region without changing product behavior.
+- The recovered Live V1 probe can now run a separate A2 full-rig recovery hypothesis without changing the default probe path or product behavior.
+- A2 v0 proves that V2-style center/side shaping plus softclip is not enough to recover Current Best parity.
 
 ## What This Does Not Prove
 
@@ -129,7 +164,8 @@ Diagnostic A2 output safety pass:
 - It does not change public product defaults.
 - It does not make directly applied A2-manifest gain values safe; the local A2-gain pass clipped heavily, which indicates missing Current Best output safety/headroom behavior.
 - It does not prove that a simple limiter, peak normalizer, or ceiling stage is enough to recover the known-good Current Best product chain.
+- It does not prove that the A2 v0 recovery formula is suitable for owner listening or playable beta installation.
 
 ## Next Safe Step
 
-Continue reconstructing the actual Current Best A2 full-rig chain before integrating any NAM source into `PluginProcessor`. The diagnostic safety pass narrowed the blocker: the missing behavior is not only level safety, but also the product polish/EQ/headroom calibration that keeps the known-good beta loud without becoming clipped, overly bright, or mid-forward.
+Continue reconstructing the actual Current Best A2 full-rig chain before integrating any NAM source into `PluginProcessor`. The diagnostic safety and A2 v0 passes narrowed the blocker: the missing behavior is not only level safety or V2 center/side shaping, but also the product polish/EQ/headroom calibration that keeps the known-good beta loud without becoming clipped, overly bright, or mid-forward.
