@@ -25,6 +25,8 @@ struct Options
     juce::File outputDirectory;
     double sampleRate = 48000.0;
     int blockSize = 128;
+    double startSeconds = 0.0;
+    double durationSeconds = 0.0;
 };
 
 juce::String getArgumentValue(int argc, char* argv[], const juce::String& name)
@@ -55,7 +57,9 @@ void printUsage()
               << "  --input <input.wav>\n"
               << "  --out <output-directory>\n"
               << "  [--sample-rate <hz>]\n"
-              << "  [--block-size <samples>]\n";
+              << "  [--block-size <samples>]\n"
+              << "  [--start-seconds <seconds>]\n"
+              << "  [--duration-seconds <seconds>]\n";
 }
 
 bool parseOptions(int argc, char* argv[], Options& options, juce::String& error)
@@ -74,6 +78,14 @@ bool parseOptions(int argc, char* argv[], Options& options, juce::String& error)
     if (blockSizeValue.isNotEmpty())
         options.blockSize = blockSizeValue.getIntValue();
 
+    const auto startSecondsValue = getArgumentValue(argc, argv, "--start-seconds");
+    if (startSecondsValue.isNotEmpty())
+        options.startSeconds = startSecondsValue.getDoubleValue();
+
+    const auto durationSecondsValue = getArgumentValue(argc, argv, "--duration-seconds");
+    if (durationSecondsValue.isNotEmpty())
+        options.durationSeconds = durationSecondsValue.getDoubleValue();
+
     if (options.input.getFullPathName().isEmpty())
     {
         error = "Missing --input.";
@@ -89,6 +101,12 @@ bool parseOptions(int argc, char* argv[], Options& options, juce::String& error)
     if (!(options.sampleRate > 0.0) || options.blockSize <= 0)
     {
         error = "Invalid sample rate or block size.";
+        return false;
+    }
+
+    if (options.startSeconds < 0.0 || options.durationSeconds < 0.0)
+    {
+        error = "Start and duration must not be negative.";
         return false;
     }
 
@@ -164,6 +182,8 @@ void writeMetadata(const juce::File& metadataFile,
     metadata->setProperty("sampleRate", options.sampleRate);
     metadata->setProperty("inputSampleRate", reader.sampleRate);
     metadata->setProperty("blockSize", options.blockSize);
+    metadata->setProperty("startSeconds", options.startSeconds);
+    metadata->setProperty("durationSecondsRequested", options.durationSeconds);
     metadata->setProperty("inputChannels", static_cast<int>(reader.numChannels));
     metadata->setProperty("activeInputChannel", activeInputChannel);
     metadata->setProperty("outputChannels", 2);
@@ -285,6 +305,13 @@ int main(int argc, char* argv[])
         sourceMono[static_cast<size_t>(sample)] = sourceBuffer.getSample(activeInputChannel, static_cast<int>(sample));
 
     const auto resampledMono = resampleLinear(sourceMono, reader->sampleRate, options.sampleRate);
+    const auto requestedStartSample = static_cast<juce::int64>(std::floor(options.startSeconds * options.sampleRate));
+    const auto renderStartSample = juce::jlimit<juce::int64>(0, static_cast<juce::int64>(resampledMono.size()), requestedStartSample);
+    const auto availableSamples = static_cast<juce::int64>(resampledMono.size()) - renderStartSample;
+    const auto requestedDurationSamples = options.durationSeconds > 0.0
+        ? static_cast<juce::int64>(std::ceil(options.durationSeconds * options.sampleRate))
+        : availableSamples;
+    const auto renderSamples = juce::jlimit<juce::int64>(0, availableSamples, requestedDurationSamples);
     juce::AudioBuffer<float> monoBuffer(1, options.blockSize);
     juce::AudioBuffer<float> outputBuffer(2, options.blockSize);
 
@@ -292,14 +319,14 @@ int main(int argc, char* argv[])
     float rawInputPeak = activeInputPeak;
     float outputPeak = 0.0f;
 
-    while (samplesRendered < static_cast<juce::int64>(resampledMono.size()))
+    while (samplesRendered < renderSamples)
     {
         const auto samplesThisBlock = static_cast<int>(
-            juce::jmin<juce::int64>(options.blockSize, static_cast<juce::int64>(resampledMono.size()) - samplesRendered));
+            juce::jmin<juce::int64>(options.blockSize, renderSamples - samplesRendered));
 
         monoBuffer.clear();
         outputBuffer.clear();
-        monoBuffer.copyFrom(0, 0, resampledMono.data() + samplesRendered, samplesThisBlock);
+        monoBuffer.copyFrom(0, 0, resampledMono.data() + renderStartSample + samplesRendered, samplesThisBlock);
 
         if (!chain.process(monoBuffer.getReadPointer(0),
                            outputBuffer.getWritePointer(0),
