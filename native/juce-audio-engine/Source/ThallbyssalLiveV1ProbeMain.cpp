@@ -6,6 +6,7 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 namespace
 {
@@ -104,11 +105,48 @@ float findPeak(const juce::AudioBuffer<float>& buffer, int samples)
     return peak;
 }
 
+float findChannelPeak(const juce::AudioBuffer<float>& buffer, int channel, int samples)
+{
+    float peak = 0.0f;
+    for (int sample = 0; sample < samples; ++sample)
+        peak = juce::jmax(peak, std::abs(buffer.getSample(channel, sample)));
+
+    return peak;
+}
+
+std::vector<float> resampleLinear(const std::vector<float>& input, double inputSampleRate, double outputSampleRate)
+{
+    if (input.empty())
+        return {};
+
+    if (std::abs(inputSampleRate - outputSampleRate) <= 0.5)
+        return input;
+
+    const auto outputSamples = static_cast<size_t>(std::ceil(static_cast<double>(input.size()) * outputSampleRate / inputSampleRate));
+    std::vector<float> output(outputSamples, 0.0f);
+    const auto ratio = inputSampleRate / outputSampleRate;
+
+    for (size_t sample = 0; sample < output.size(); ++sample)
+    {
+        const auto sourcePosition = static_cast<double>(sample) * ratio;
+        const auto index = static_cast<size_t>(std::floor(sourcePosition));
+        const auto nextIndex = std::min(index + 1, input.size() - 1);
+        const auto fraction = static_cast<float>(sourcePosition - static_cast<double>(index));
+        const auto current = input[std::min(index, input.size() - 1)];
+        const auto next = input[nextIndex];
+        output[sample] = current + (next - current) * fraction;
+    }
+
+    return output;
+}
+
 void writeMetadata(const juce::File& metadataFile,
                    const Options& options,
                    const ThallbyssalLiveV1NamChain& chain,
                    const juce::File& processedWav,
                    const juce::AudioFormatReader& reader,
+                   int activeInputChannel,
+                   juce::int64 sourceSamples,
                    juce::int64 samplesRendered,
                    float rawInputPeak,
                    float outputPeak)
@@ -124,10 +162,14 @@ void writeMetadata(const juce::File& metadataFile,
     metadata->setProperty("inputWav", options.input.getFullPathName());
     metadata->setProperty("processedWav", processedWav.getFullPathName());
     metadata->setProperty("sampleRate", options.sampleRate);
+    metadata->setProperty("inputSampleRate", reader.sampleRate);
     metadata->setProperty("blockSize", options.blockSize);
     metadata->setProperty("inputChannels", static_cast<int>(reader.numChannels));
+    metadata->setProperty("activeInputChannel", activeInputChannel);
     metadata->setProperty("outputChannels", 2);
+    metadata->setProperty("sourceSamples", static_cast<double>(sourceSamples));
     metadata->setProperty("samplesRendered", static_cast<double>(samplesRendered));
+    metadata->setProperty("resampled", std::abs(reader.sampleRate - options.sampleRate) > 0.5);
     metadata->setProperty("rawInputPeakLinear", rawInputPeak);
     metadata->setProperty("outputPeakLinear", outputPeak);
 
@@ -196,12 +238,6 @@ int main(int argc, char* argv[])
         return inputError;
     }
 
-    if (std::abs(reader->sampleRate - options.sampleRate) > 0.5)
-    {
-        std::cerr << "Input sample rate does not match requested sample rate.\n";
-        return inputError;
-    }
-
     ThallbyssalLiveV1NamChain chain;
     auto config = ThallbyssalLiveV1NamChain::Config::localPrivateDefaults();
     if (!chain.prepare(config, options.sampleRate, options.blockSize, error))
@@ -227,41 +263,43 @@ int main(int argc, char* argv[])
     }
     outputStream.release();
 
-    juce::AudioBuffer<float> inputBuffer(static_cast<int>(reader->numChannels), options.blockSize);
+    const auto sourceSamples = reader->lengthInSamples;
+    juce::AudioBuffer<float> sourceBuffer(static_cast<int>(reader->numChannels), static_cast<int>(sourceSamples));
+    sourceBuffer.clear();
+    reader->read(&sourceBuffer, 0, static_cast<int>(sourceSamples), 0, true, true);
+
+    int activeInputChannel = 0;
+    float activeInputPeak = 0.0f;
+    for (int channel = 0; channel < sourceBuffer.getNumChannels(); ++channel)
+    {
+        const auto channelPeak = findChannelPeak(sourceBuffer, channel, static_cast<int>(sourceSamples));
+        if (channelPeak > activeInputPeak)
+        {
+            activeInputPeak = channelPeak;
+            activeInputChannel = channel;
+        }
+    }
+
+    std::vector<float> sourceMono(static_cast<size_t>(sourceSamples), 0.0f);
+    for (juce::int64 sample = 0; sample < sourceSamples; ++sample)
+        sourceMono[static_cast<size_t>(sample)] = sourceBuffer.getSample(activeInputChannel, static_cast<int>(sample));
+
+    const auto resampledMono = resampleLinear(sourceMono, reader->sampleRate, options.sampleRate);
     juce::AudioBuffer<float> monoBuffer(1, options.blockSize);
     juce::AudioBuffer<float> outputBuffer(2, options.blockSize);
 
     juce::int64 samplesRendered = 0;
-    float rawInputPeak = 0.0f;
+    float rawInputPeak = activeInputPeak;
     float outputPeak = 0.0f;
 
-    while (samplesRendered < reader->lengthInSamples)
+    while (samplesRendered < static_cast<juce::int64>(resampledMono.size()))
     {
         const auto samplesThisBlock = static_cast<int>(
-            juce::jmin<juce::int64>(options.blockSize, reader->lengthInSamples - samplesRendered));
+            juce::jmin<juce::int64>(options.blockSize, static_cast<juce::int64>(resampledMono.size()) - samplesRendered));
 
-        inputBuffer.clear();
         monoBuffer.clear();
         outputBuffer.clear();
-        reader->read(&inputBuffer, 0, samplesThisBlock, samplesRendered, true, true);
-
-        int activeInputChannel = 0;
-        float activeInputPeak = 0.0f;
-        for (int channel = 0; channel < inputBuffer.getNumChannels(); ++channel)
-        {
-            float channelPeak = 0.0f;
-            for (int sample = 0; sample < samplesThisBlock; ++sample)
-                channelPeak = juce::jmax(channelPeak, std::abs(inputBuffer.getSample(channel, sample)));
-
-            if (channelPeak > activeInputPeak)
-            {
-                activeInputPeak = channelPeak;
-                activeInputChannel = channel;
-            }
-        }
-
-        monoBuffer.copyFrom(0, 0, inputBuffer, activeInputChannel, 0, samplesThisBlock);
-        rawInputPeak = juce::jmax(rawInputPeak, findPeak(monoBuffer, samplesThisBlock));
+        monoBuffer.copyFrom(0, 0, resampledMono.data() + samplesRendered, samplesThisBlock);
 
         if (!chain.process(monoBuffer.getReadPointer(0),
                            outputBuffer.getWritePointer(0),
@@ -284,7 +322,7 @@ int main(int argc, char* argv[])
         samplesRendered += samplesThisBlock;
     }
 
-    writeMetadata(metadataFile, options, chain, processedWav, *reader, samplesRendered, rawInputPeak, outputPeak);
+    writeMetadata(metadataFile, options, chain, processedWav, *reader, activeInputChannel, sourceSamples, samplesRendered, rawInputPeak, outputPeak);
     std::cout << "Rendered live V1 NAM product-path probe: " << processedWav.getFullPathName() << "\n";
     std::cout << "Metadata: " << metadataFile.getFullPathName() << "\n";
     return ok;

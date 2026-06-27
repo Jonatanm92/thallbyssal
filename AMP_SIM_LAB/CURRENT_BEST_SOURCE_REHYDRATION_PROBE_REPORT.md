@@ -18,6 +18,7 @@ This pass adds a narrow NAM-runtime source recovery probe. It does not claim Cur
   - `native/juce-audio-engine/Source/NamRuntimeProbeMain.cpp`
   - `native/juce-audio-engine/Source/ThallbyssalLiveV1ProbeMain.cpp`
 - Updated `native/juce-audio-engine/CMakeLists.txt` with `THALLBYSSAL_ENABLE_NAM_RUNTIME`, default `OFF`.
+- Added probe-only input resampling in `ThallbyssalLiveV1ProbeMain.cpp` so historical DI files at 44.1 kHz, 48 kHz, or 96 kHz can be rendered into the fixed 48 kHz probe chain.
 
 ## Safety Boundaries
 
@@ -72,11 +73,12 @@ Live V1 probe render sanity:
 - Result: pass, chain reported ready and all NAM/IR branches loaded.
 - Caveat: metadata reported `rawInputPeakLinear` as `0`, so this render is only a runtime plumbing check, not a meaningful tone or parity render.
 
-Rejected DI sanity attempts:
+Resampling sanity after probe update:
 
-- `D:\REAPER\PICK ATTACK.wav`: rejected because file sample rate is 96000 Hz.
-- `D:\REAPER\DI Boostalizer.wav`: rejected because file sample rate is 44100 Hz.
-- Current Live V1 probe is scoped to 48000 Hz.
+- `D:\REAPER\PICK ATTACK.wav`: pass, input sample rate 96000 Hz, rendered at 48000 Hz, `resampled=true`, `rawInputPeakLinear=0.445430815219879`, `outputPeakLinear=0.058105066418648`.
+- `D:\REAPER\DI Boostalizer.wav`: pass, input sample rate 44100 Hz, rendered at 48000 Hz, `resampled=true`, `rawInputPeakLinear=0.25079882144928`, `outputPeakLinear=0.05517029389739`.
+- `D:\REAPER\DI CLENA!.wav`: pass, input sample rate 48000 Hz, rendered at 48000 Hz, `resampled=false`, `rawInputPeakLinear=0`.
+- The generated metadata under `D:\CodexBuilds\thallbyssal-lab` can include local private asset paths and must not be committed or shared as release material.
 
 ## What This Proves
 
@@ -85,6 +87,7 @@ Rejected DI sanity attempts:
 - The A2/Slimmable/WaveNet NAM parser can load the local private A2 NAM test file.
 - The generated-buffer sanity path can process finite audio through NAM.
 - The recovered Live V1 probe chain compiles and can load local-only NAM/IR dependencies when pointed at them through a private config file.
+- The recovered Live V1 probe can now ingest common historical DI sample rates by resampling probe input only.
 
 ## What This Does Not Prove
 
@@ -97,4 +100,4 @@ Rejected DI sanity attempts:
 
 ## Next Safe Step
 
-Create a dedicated 48 kHz source-parity test input or add resampling to the probe only, then compare a source-built probe render against the known-good beta output before integrating any NAM source into `PluginProcessor`.
+Compare a source-built probe render against the known-good beta output before integrating any NAM source into `PluginProcessor`. This requires matching the actual Current Best beta chain/settings, not just proving NAM runtime plumbing.
