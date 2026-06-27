@@ -36,6 +36,7 @@
     "lab:render:safety": "node AMP_SIM_LAB/test-harness/render-hook/render-safety.mjs",
     "lab:baseline:create": "node AMP_SIM_LAB/test-harness/render-hook/baseline-create.mjs",
     "lab:baseline:compare": "node AMP_SIM_LAB/test-harness/render-hook/baseline-compare.mjs",
+    "lab:source-parity": "node AMP_SIM_LAB/test-harness/source-parity/current-best-source-parity.mjs",
     "lab:validate-presets": "node AMP_SIM_LAB/test-harness/validate-presets.mjs",
     "lab:presets": "npm run lab:validate-presets",
     "lab:beta-pack": "node AMP_SIM_LAB/test-harness/create-beta-pack.mjs",
