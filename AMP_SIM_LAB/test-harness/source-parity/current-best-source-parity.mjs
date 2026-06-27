@@ -163,6 +163,18 @@ function pairStatus(pair, sourceExists, betaExists, diExists) {
   return "measurement-ready";
 }
 
+function statusAfterComparison(status, comparison) {
+  if (status !== "measurement-ready" || !comparison) {
+    return status;
+  }
+
+  if (!comparison.sampleRateMatch || !comparison.channelMatch || Math.abs(comparison.durationDeltaSeconds) > 0.25) {
+    return "review-render-format-or-duration-mismatch";
+  }
+
+  return status;
+}
+
 export function createSourceParityReport({ manifestPath = defaultManifestPath, manifest = null, generatedAt = new Date().toISOString() } = {}) {
   const manifestExists = manifest !== null || exists(manifestPath);
   const loadedManifest = manifest ?? loadJsonIfExists(manifestPath);
@@ -196,10 +208,12 @@ export function createSourceParityReport({ manifestPath = defaultManifestPath, m
     const sourceExists = exists(pair.sourceProbeRenderPath);
     const betaExists = exists(pair.knownGoodBetaRenderPath);
     const diExists = pair.diPath ? exists(pair.diPath) : false;
-    const status = pairStatus(pair, sourceExists, betaExists, diExists);
+    const initialStatus = pairStatus(pair, sourceExists, betaExists, diExists);
     const sourceMetrics = analyzeIfExists(pair.sourceProbeRenderPath);
     const betaMetrics = analyzeIfExists(pair.knownGoodBetaRenderPath);
     const sourceMetadata = loadJsonIfExists(pair.sourceProbeMetadataPath);
+    const comparison = sourceMetrics && betaMetrics ? compareMetrics(sourceMetrics, betaMetrics) : null;
+    const status = statusAfterComparison(initialStatus, comparison);
 
     return {
       ...pair,
@@ -221,7 +235,7 @@ export function createSourceParityReport({ manifestPath = defaultManifestPath, m
         : null,
       sourceMetrics,
       betaMetrics,
-      comparison: sourceMetrics && betaMetrics ? compareMetrics(sourceMetrics, betaMetrics) : null,
+      comparison,
       evidenceLevel: sourceMetrics && betaMetrics
         ? "measurement-evidence-only"
         : "missing-evidence"
@@ -230,12 +244,14 @@ export function createSourceParityReport({ manifestPath = defaultManifestPath, m
 
   const comparablePairs = pairs.filter((pair) => pair.comparison).length;
   const blockedPairs = pairs.filter((pair) => pair.status.startsWith("blocked")).length;
+  const reviewPairs = pairs.filter((pair) => pair.status.startsWith("review")).length;
+  const cleanMeasurementPairs = pairs.filter((pair) => pair.status === "measurement-ready").length;
 
   return {
     schemaVersion: 1,
     generatedAt,
     manifestPath,
-    status: comparablePairs > 0 && blockedPairs === 0 ? "measurement-ready" : "blocked-or-partial",
+    status: cleanMeasurementPairs > 0 && blockedPairs === 0 && reviewPairs === 0 ? "measurement-ready" : "blocked-or-partial",
     purpose: "Compare source-built Current Best recovery probes against known-good playable beta renders without changing product behavior.",
     boundaries: [
       "Report-only; no DSP, preset, plugin default, NAM, IR, or audio asset changes.",
@@ -247,7 +263,8 @@ export function createSourceParityReport({ manifestPath = defaultManifestPath, m
       totalPairs: pairs.length,
       comparablePairs,
       blockedPairs,
-      readyForListening: comparablePairs > 0 && blockedPairs === 0,
+      reviewPairs,
+      readyForListening: cleanMeasurementPairs > 0 && blockedPairs === 0 && reviewPairs === 0,
       parityClaimAllowed: false
     },
     nextAction: comparablePairs > 0

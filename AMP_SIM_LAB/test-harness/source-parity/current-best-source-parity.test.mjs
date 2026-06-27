@@ -123,3 +123,31 @@ test("source parity report compares source probe and known-good beta WAV metrics
   assert.match(createSourceParityMarkdown(report), /level-check/);
   assert.match(createSourceParityHtml(report), /Known-good beta/);
 });
+
+test("source parity report flags render duration mismatches for review", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "source-parity-duration-"));
+  const sourcePath = path.join(tempDir, "source-probe.wav");
+  const betaPath = path.join(tempDir, "known-good-beta.wav");
+  writePcm16Wav(sourcePath, Array.from({ length: 48000 }, (_, index) => Math.sin(index * 0.02) * 0.1));
+  writePcm16Wav(betaPath, Array.from({ length: 12000 }, (_, index) => Math.sin(index * 0.02) * 0.1));
+
+  const report = createSourceParityReport({
+    generatedAt: "2026-06-27T00:00:00.000Z",
+    manifestPath: path.join(tempDir, "manifest.json"),
+    manifest: {
+      pairs: [
+        {
+          id: "duration-check",
+          sourceProbeRenderPath: sourcePath,
+          knownGoodBetaRenderPath: betaPath
+        }
+      ]
+    }
+  });
+
+  assert.equal(report.status, "blocked-or-partial");
+  assert.equal(report.summary.comparablePairs, 1);
+  assert.equal(report.summary.reviewPairs, 1);
+  assert.equal(report.summary.readyForListening, false);
+  assert.equal(report.pairs[0].status, "review-render-format-or-duration-mismatch");
+});
