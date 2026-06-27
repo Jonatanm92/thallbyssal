@@ -80,7 +80,7 @@ function loadJsonIfExists(filePath) {
     return null;
   }
 
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  return JSON.parse(fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, ""));
 }
 
 function analyzeIfExists(filePath) {

@@ -79,6 +79,20 @@ test("source parity report marks missing beta render as blocked evidence", () =>
   assert.equal(report.pairs[0].files.knownGoodBetaRenderExists, false);
 });
 
+test("source parity report accepts a local manifest with UTF-8 BOM", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "source-parity-bom-"));
+  const manifestPath = path.join(tempDir, "manifest.json");
+  fs.writeFileSync(manifestPath, `\uFEFF${JSON.stringify({ pairs: [] })}\n`, "utf8");
+
+  const report = createSourceParityReport({
+    generatedAt: "2026-06-27T00:00:00.000Z",
+    manifestPath
+  });
+
+  assert.equal(report.status, "blocked-or-partial");
+  assert.equal(report.summary.totalPairs, 0);
+});
+
 test("source parity report compares source probe and known-good beta WAV metrics", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "source-parity-ready-"));
   const sourcePath = path.join(tempDir, "source-probe.wav");
