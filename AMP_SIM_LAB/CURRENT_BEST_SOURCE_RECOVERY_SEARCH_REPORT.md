@@ -90,6 +90,18 @@ The source-rehydration probe can now test local gain hypotheses:
 
 This means the missing source behavior is probably not just the NAM runtime. The missing behavior is the Current Best A2 output/headroom/safety/polish chain around the high final-gain region.
 
+Follow-up diagnostic output/headroom evidence:
+
+- Probe-only safety modes were added to `ThallbyssalLiveV1ProbeMain.cpp`.
+- `peak-normalize`, `hard-ceiling`, and `soft-ceiling` were rendered against the first 6 seconds of:
+  - `D:\REAPER\DI Boostalizer.wav`
+  - `D:\REAPER\PICK ATTACK.wav`
+- All six safety renders completed and measured `0` clipped samples.
+- The safety pass did not recover Current Best parity:
+  - `peak-normalize` removed clipping but lost too much RMS and low/low-mid energy.
+  - `hard-ceiling` and `soft-ceiling` removed clipping but remained too mid/high-forward compared with the known-good beta.
+- This narrows the missing behavior further: the known-good beta likely contains product-specific output polish, EQ/headroom calibration, or a more specific A2 full-rig chain shape beyond simple gain plus limiter.
+
 ## What Was Not Found
 
 - No exact source root for the known-good beta.
@@ -101,16 +113,17 @@ This means the missing source behavior is probably not just the NAM runtime. The
 
 Do not install or overwrite the playable known-good beta.
 
-The next safe implementation task is a diagnostic-only A2 output/headroom probe:
+The next safe implementation task is reconstructing the actual Current Best A2 full-rig product chain from evidence:
 
 1. Keep product DSP untouched.
 2. Keep Golden Reference A untouched.
 3. Keep product defaults untouched.
 4. Keep all local NAM/IR/audio assets doNotShip=true.
-5. Add probe-only output safety variants around the A2 gain hypothesis.
-6. Render the same 6-second historical DI windows.
-7. Compare against known-good beta with `npm run lab:source-parity`.
-8. Reject any variant with clipping/non-finite samples.
-9. Treat the result as measurement evidence only, not listening approval.
+5. Recover the product-specific A2 output polish/headroom behavior that sits beyond simple peak safety.
+6. Recover the exact Current Best settings represented by `PSET2 / BST1 / CHF1 / CHUG-UI2`.
+7. Render the same 6-second historical DI windows.
+8. Compare against known-good beta with `npm run lab:source-parity`.
+9. Reject any variant with clipping/non-finite samples.
+10. Treat the result as measurement evidence only, not listening approval.
 
 This should be done as source recovery tooling, not as product sound design.

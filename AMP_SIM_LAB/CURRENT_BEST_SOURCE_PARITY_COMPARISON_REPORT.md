@@ -111,11 +111,50 @@ Pick Attack:
 - High band delta: `+5.83 dB`.
 - Clipped sample delta: `+41207`.
 
+### Diagnostic A2 Output Safety Probe
+
+This pass kept the same local-only A2 gain hypothesis and added probe-only output safety variants. The safety processing exists only inside `ThallbyssalLiveV1ProbeMain.cpp` for measurement. It does not alter product DSP, presets, defaults, the known-good beta, NAM assets, or IR assets.
+
+Rendered modes:
+
+- `peak-normalize`
+- `hard-ceiling`
+- `soft-ceiling`
+
+Common result:
+
+- Comparable pairs: `6/6`.
+- Clipped samples: `0` for all six safety renders.
+- Non-finite samples: none reported by the comparison harness.
+- Parity status: still `review-render-format-or-duration-mismatch` because sample rates differ between source probe and some known-good beta renders, even though the compared windows are both `6.000 s`.
+
+DI Boostalizer:
+
+| Safety mode | Peak delta | RMS delta | Low delta | Low-mid delta | Mid delta | High delta | Clips |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `peak-normalize` | `-0.48 dB` | `-5.76 dB` | `-9.19 dB` | `-7.16 dB` | `-2.37 dB` | `+0.17 dB` | `0` |
+| `hard-ceiling` | `-0.48 dB` | `+1.41 dB` | `-1.72 dB` | `+0.36 dB` | `+4.55 dB` | `+6.80 dB` | `0` |
+| `soft-ceiling` | `+0.45 dB` | `+1.57 dB` | `-1.60 dB` | `+0.47 dB` | `+4.75 dB` | `+7.01 dB` | `0` |
+
+Pick Attack:
+
+| Safety mode | Peak delta | RMS delta | Low delta | Low-mid delta | Mid delta | High delta | Clips |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `peak-normalize` | `-0.47 dB` | `-3.27 dB` | `-7.80 dB` | `-5.15 dB` | `-0.98 dB` | `-0.32 dB` | `0` |
+| `hard-ceiling` | `-0.47 dB` | `+2.76 dB` | `-1.32 dB` | `+1.31 dB` | `+4.88 dB` | `+5.27 dB` | `0` |
+| `soft-ceiling` | `+0.42 dB` | `+2.93 dB` | `-1.23 dB` | `+1.41 dB` | `+5.07 dB` | `+5.48 dB` | `0` |
+
+Interpretation:
+
+- `peak-normalize` proves that simple peak-safe scaling can remove clipping, but it under-delivers RMS and low/low-mid energy versus the known-good beta.
+- `hard-ceiling` and `soft-ceiling` prove that clipping can be removed while staying loud, but the recovered probe remains too mid/high-forward versus the known-good beta.
+- The source parity blocker is therefore not just missing peak safety. The missing Current Best behavior also includes output polish, EQ/headroom calibration, or a more specific A2 full-rig chain shape.
+
 ## Conclusion
 
 The source-built recovery probe is not source-parity with the known-good Current Best beta.
 
-The previous full-file versus 6-second duration mismatch has been removed. The first windowed pass proved the older Live V1 probe gain staging is far too quiet. The A2-manifest gain override pass proved the missing high-level gain direction is real, but it also proved that directly applying those gains in the raw Live V1 probe is unsafe: it clips tens of thousands of samples and overstates mid/high energy relative to the known-good beta.
+The previous full-file versus 6-second duration mismatch has been removed. The first windowed pass proved the older Live V1 probe gain staging is far too quiet. The A2-manifest gain override pass proved the missing high-level gain direction is real, but it also proved that directly applying those gains in the raw Live V1 probe is unsafe: it clips tens of thousands of samples and overstates mid/high energy relative to the known-good beta. The diagnostic output safety pass removed clipping in all tested variants, but it did not recover the known-good beta balance.
 
 The remaining blocker is no longer "unknown level mismatch." It is now narrower:
 

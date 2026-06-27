@@ -27,6 +27,9 @@ struct Options
     int blockSize = 128;
     double startSeconds = 0.0;
     double durationSeconds = 0.0;
+    juce::String safetyMode = "none";
+    double safetyCeilingDb = -1.0;
+    double safetyDrive = 2.0;
 };
 
 juce::String getArgumentValue(int argc, char* argv[], const juce::String& name)
@@ -59,7 +62,10 @@ void printUsage()
               << "  [--sample-rate <hz>]\n"
               << "  [--block-size <samples>]\n"
               << "  [--start-seconds <seconds>]\n"
-              << "  [--duration-seconds <seconds>]\n";
+              << "  [--duration-seconds <seconds>]\n"
+              << "  [--safety-mode none|peak-normalize|hard-ceiling|soft-ceiling]\n"
+              << "  [--safety-ceiling-db <dbfs>]\n"
+              << "  [--safety-drive <amount>]\n";
 }
 
 bool parseOptions(int argc, char* argv[], Options& options, juce::String& error)
@@ -86,6 +92,18 @@ bool parseOptions(int argc, char* argv[], Options& options, juce::String& error)
     if (durationSecondsValue.isNotEmpty())
         options.durationSeconds = durationSecondsValue.getDoubleValue();
 
+    const auto safetyModeValue = getArgumentValue(argc, argv, "--safety-mode");
+    if (safetyModeValue.isNotEmpty())
+        options.safetyMode = safetyModeValue.trim().toLowerCase();
+
+    const auto safetyCeilingValue = getArgumentValue(argc, argv, "--safety-ceiling-db");
+    if (safetyCeilingValue.isNotEmpty())
+        options.safetyCeilingDb = safetyCeilingValue.getDoubleValue();
+
+    const auto safetyDriveValue = getArgumentValue(argc, argv, "--safety-drive");
+    if (safetyDriveValue.isNotEmpty())
+        options.safetyDrive = safetyDriveValue.getDoubleValue();
+
     if (options.input.getFullPathName().isEmpty())
     {
         error = "Missing --input.";
@@ -110,7 +128,27 @@ bool parseOptions(int argc, char* argv[], Options& options, juce::String& error)
         return false;
     }
 
+    if (options.safetyMode != "none"
+        && options.safetyMode != "peak-normalize"
+        && options.safetyMode != "hard-ceiling"
+        && options.safetyMode != "soft-ceiling")
+    {
+        error = "Unsupported safety mode: " + options.safetyMode;
+        return false;
+    }
+
+    if (!(options.safetyCeilingDb < 0.0) || !(options.safetyDrive > 0.0))
+    {
+        error = "Safety ceiling must be below 0 dBFS and safety drive must be positive.";
+        return false;
+    }
+
     return true;
+}
+
+float decibelsToGain(double db)
+{
+    return static_cast<float>(std::pow(10.0, db / 20.0));
 }
 
 float findPeak(const juce::AudioBuffer<float>& buffer, int samples)
@@ -158,6 +196,66 @@ std::vector<float> resampleLinear(const std::vector<float>& input, double inputS
     return output;
 }
 
+float findStereoPeak(const std::vector<float>& left, const std::vector<float>& right)
+{
+    float peak = 0.0f;
+    for (auto sample : left)
+        peak = juce::jmax(peak, std::abs(sample));
+    for (auto sample : right)
+        peak = juce::jmax(peak, std::abs(sample));
+    return peak;
+}
+
+float softCeilingSample(float sample, float ceiling, double drive)
+{
+    const auto absolute = std::abs(sample);
+    if (absolute <= ceiling)
+        return sample;
+
+    constexpr auto maxSafe = 0.9985f;
+    const auto excess = static_cast<double>(absolute - ceiling);
+    const auto shaped = static_cast<float>(ceiling + (maxSafe - ceiling) * (1.0 - std::exp(-drive * excess)));
+    return std::copysign(juce::jlimit(0.0f, maxSafe, shaped), sample);
+}
+
+void applySafetyMode(std::vector<float>& left, std::vector<float>& right, const Options& options, float rawOutputPeak)
+{
+    if (options.safetyMode == "none")
+        return;
+
+    const auto ceiling = decibelsToGain(options.safetyCeilingDb);
+
+    if (options.safetyMode == "peak-normalize")
+    {
+        if (rawOutputPeak <= ceiling || rawOutputPeak <= 1.0e-12f)
+            return;
+
+        const auto gain = ceiling / rawOutputPeak;
+        for (auto& sample : left)
+            sample *= gain;
+        for (auto& sample : right)
+            sample *= gain;
+        return;
+    }
+
+    if (options.safetyMode == "hard-ceiling")
+    {
+        for (auto& sample : left)
+            sample = juce::jlimit(-ceiling, ceiling, sample);
+        for (auto& sample : right)
+            sample = juce::jlimit(-ceiling, ceiling, sample);
+        return;
+    }
+
+    if (options.safetyMode == "soft-ceiling")
+    {
+        for (auto& sample : left)
+            sample = softCeilingSample(sample, ceiling, options.safetyDrive);
+        for (auto& sample : right)
+            sample = softCeilingSample(sample, ceiling, options.safetyDrive);
+    }
+}
+
 void writeMetadata(const juce::File& metadataFile,
                    const Options& options,
                    const ThallbyssalLiveV1NamChain& chain,
@@ -167,6 +265,7 @@ void writeMetadata(const juce::File& metadataFile,
                    juce::int64 sourceSamples,
                    juce::int64 samplesRendered,
                    float rawInputPeak,
+                   float rawOutputPeak,
                    float outputPeak)
 {
     const auto& config = chain.getConfig();
@@ -191,7 +290,11 @@ void writeMetadata(const juce::File& metadataFile,
     metadata->setProperty("samplesRendered", static_cast<double>(samplesRendered));
     metadata->setProperty("resampled", std::abs(reader.sampleRate - options.sampleRate) > 0.5);
     metadata->setProperty("rawInputPeakLinear", rawInputPeak);
+    metadata->setProperty("rawOutputPeakLinear", rawOutputPeak);
     metadata->setProperty("outputPeakLinear", outputPeak);
+    metadata->setProperty("safetyMode", options.safetyMode);
+    metadata->setProperty("safetyCeilingDb", options.safetyCeilingDb);
+    metadata->setProperty("safetyDrive", options.safetyDrive);
 
     metadata->setProperty("bigBottomModel", config.bigBottomModel.getFullPathName());
     metadata->setProperty("gojiraModel", config.gojiraModel.getFullPathName());
@@ -314,10 +417,12 @@ int main(int argc, char* argv[])
     const auto renderSamples = juce::jlimit<juce::int64>(0, availableSamples, requestedDurationSamples);
     juce::AudioBuffer<float> monoBuffer(1, options.blockSize);
     juce::AudioBuffer<float> outputBuffer(2, options.blockSize);
+    std::vector<float> renderedLeft(static_cast<size_t>(renderSamples), 0.0f);
+    std::vector<float> renderedRight(static_cast<size_t>(renderSamples), 0.0f);
 
     juce::int64 samplesRendered = 0;
     float rawInputPeak = activeInputPeak;
-    float outputPeak = 0.0f;
+    float rawOutputPeak = 0.0f;
 
     while (samplesRendered < renderSamples)
     {
@@ -338,7 +443,31 @@ int main(int argc, char* argv[])
             return renderError;
         }
 
-        outputPeak = juce::jmax(outputPeak, findPeak(outputBuffer, samplesThisBlock));
+        rawOutputPeak = juce::jmax(rawOutputPeak, findPeak(outputBuffer, samplesThisBlock));
+
+        const auto outputOffset = static_cast<size_t>(samplesRendered);
+        for (int sample = 0; sample < samplesThisBlock; ++sample)
+        {
+            renderedLeft[outputOffset + static_cast<size_t>(sample)] = outputBuffer.getSample(0, sample);
+            renderedRight[outputOffset + static_cast<size_t>(sample)] = outputBuffer.getSample(1, sample);
+        }
+
+        samplesRendered += samplesThisBlock;
+    }
+
+    applySafetyMode(renderedLeft, renderedRight, options, rawOutputPeak);
+    const auto outputPeak = findStereoPeak(renderedLeft, renderedRight);
+
+    juce::int64 samplesWritten = 0;
+    while (samplesWritten < renderSamples)
+    {
+        const auto samplesThisBlock = static_cast<int>(
+            juce::jmin<juce::int64>(options.blockSize, renderSamples - samplesWritten));
+
+        outputBuffer.clear();
+        const auto outputOffset = static_cast<size_t>(samplesWritten);
+        outputBuffer.copyFrom(0, 0, renderedLeft.data() + outputOffset, samplesThisBlock);
+        outputBuffer.copyFrom(1, 0, renderedRight.data() + outputOffset, samplesThisBlock);
 
         if (!writer->writeFromAudioSampleBuffer(outputBuffer, 0, samplesThisBlock))
         {
@@ -346,10 +475,20 @@ int main(int argc, char* argv[])
             return renderError;
         }
 
-        samplesRendered += samplesThisBlock;
+        samplesWritten += samplesThisBlock;
     }
 
-    writeMetadata(metadataFile, options, chain, processedWav, *reader, activeInputChannel, sourceSamples, samplesRendered, rawInputPeak, outputPeak);
+    writeMetadata(metadataFile,
+                  options,
+                  chain,
+                  processedWav,
+                  *reader,
+                  activeInputChannel,
+                  sourceSamples,
+                  samplesRendered,
+                  rawInputPeak,
+                  rawOutputPeak,
+                  outputPeak);
     std::cout << "Rendered live V1 NAM product-path probe: " << processedWav.getFullPathName() << "\n";
     std::cout << "Metadata: " << metadataFile.getFullPathName() << "\n";
     return ok;

@@ -25,6 +25,12 @@ This pass adds a narrow NAM-runtime source recovery probe. It does not claim Cur
   - `edgeGainDb`
   - `finalGainDb`
   These are probe-only recovery controls and do not change plugin DSP, product defaults, or the known-good beta.
+- Added probe-only output safety modes in `ThallbyssalLiveV1ProbeMain.cpp`:
+  - `--safety-mode none`
+  - `--safety-mode peak-normalize`
+  - `--safety-mode hard-ceiling`
+  - `--safety-mode soft-ceiling`
+  These modes are diagnostic render/export variants only. They do not change product DSP, plugin defaults, the known-good beta, or any realtime audio callback path.
 
 ## Safety Boundaries
 
@@ -86,6 +92,22 @@ Resampling sanity after probe update:
 - `D:\REAPER\DI CLENA!.wav`: pass, input sample rate 48000 Hz, rendered at 48000 Hz, `resampled=false`, `rawInputPeakLinear=0`.
 - The generated metadata under `D:\CodexBuilds\thallbyssal-lab` can include local private asset paths and must not be committed or shared as release material.
 
+Diagnostic A2 output safety pass:
+
+- Config: local-only A2 gain hypothesis, with branch gains near `-3 dB` and final gain near `+18 dB`.
+- DI windows: first 6 seconds of `DI Boostalizer.wav` and `PICK ATTACK.wav`.
+- Rendered modes: `peak-normalize`, `hard-ceiling`, and `soft-ceiling`.
+- Output root: `D:\CodexBuilds\thallbyssal-lab\current-best-source-rehydration`.
+- Result: all six renders completed, all chains reported ready, and all safety-mode comparison renders measured `0` clipped samples.
+- Raw probe peak before safety:
+  - DI Boostalizer: `2.31928539276123` linear.
+  - Pick Attack: `2.0332691669464111` linear.
+- Safety-mode output peaks:
+  - `peak-normalize`: `0.891250908374786` linear.
+  - `hard-ceiling`: `0.891250908374786` linear.
+  - `soft-ceiling`: about `0.99` linear.
+- Caveat: clipping was removed, but parity was not achieved. Peak-normalize became too quiet in RMS/lows, while hard/soft ceiling remained too high in mid/high energy compared with the known-good beta.
+
 ## What This Proves
 
 - The local NeuralAmpModelerCore checkout can be found by CMake.
@@ -95,6 +117,7 @@ Resampling sanity after probe update:
 - The recovered Live V1 probe chain compiles and can load local-only NAM/IR dependencies when pointed at them through a private config file.
 - The recovered Live V1 probe can now ingest common historical DI sample rates by resampling probe input only.
 - The recovered Live V1 probe can test local-only gain hypotheses from private config without changing product behavior.
+- The recovered Live V1 probe can now test diagnostic output safety hypotheses around the high-gain A2 region without changing product behavior.
 
 ## What This Does Not Prove
 
@@ -105,7 +128,8 @@ Resampling sanity after probe update:
 - It does not make the NAM path playable in the product.
 - It does not change public product defaults.
 - It does not make directly applied A2-manifest gain values safe; the local A2-gain pass clipped heavily, which indicates missing Current Best output safety/headroom behavior.
+- It does not prove that a simple limiter, peak normalizer, or ceiling stage is enough to recover the known-good Current Best product chain.
 
 ## Next Safe Step
 
-Compare a source-built probe render against the known-good beta output before integrating any NAM source into `PluginProcessor`. This requires matching the actual Current Best beta chain/settings, not just proving NAM runtime plumbing.
+Continue reconstructing the actual Current Best A2 full-rig chain before integrating any NAM source into `PluginProcessor`. The diagnostic safety pass narrowed the blocker: the missing behavior is not only level safety, but also the product polish/EQ/headroom calibration that keeps the known-good beta loud without becoming clipped, overly bright, or mid-forward.
