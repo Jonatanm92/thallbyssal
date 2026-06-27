@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 #include <vector>
 
@@ -280,6 +281,19 @@ juce::String overrideValue(const juce::StringPairArray& overrides, const char* k
     return unquotePath(overrides.getValue(key, {}));
 }
 
+void applyDoubleOverride(const juce::StringPairArray& overrides, const char* key, double& value)
+{
+    const auto text = overrideValue(overrides, key);
+    if (text.isEmpty())
+        return;
+
+    const auto textStd = text.trim().toStdString();
+    char* end = nullptr;
+    const auto parsed = std::strtod(textStd.c_str(), &end);
+    if (end != textStd.c_str())
+        value = parsed;
+}
+
 juce::File choosePrivateAssetRoot(const juce::StringPairArray& overrides)
 {
     const auto configRoot = overrideValue(overrides, "assetRoot");
@@ -461,6 +475,10 @@ ThallbyssalLiveV1NamChain::Config ThallbyssalLiveV1NamChain::Config::localPrivat
     config.bldogIr = assetPath(overrides, root, "bldogIr", "irs/Extra intressanta IR/V1LDHJARTA-MUV-1 - AA-BLDOG R.wav");
     config.hlbstIr = assetPath(overrides, root, "hlbstIr", "irs/Extra intressanta IR/V1LDHJARTA-MUV-1 - AA-HLBST-LDF.wav");
     config.gojiraIr = assetPath(overrides, root, "gojiraIr", "irs/tone3000-candidates/tone3000-gojira-ir.wav");
+    applyDoubleOverride(overrides, "bldogGainDb", config.bldogGainDb);
+    applyDoubleOverride(overrides, "gojiraGainDb", config.gojiraGainDb);
+    applyDoubleOverride(overrides, "edgeGainDb", config.edgeGainDb);
+    applyDoubleOverride(overrides, "finalGainDb", config.finalGainDb);
     return config;
 }
 
