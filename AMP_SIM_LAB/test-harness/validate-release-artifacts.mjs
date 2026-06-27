@@ -93,6 +93,7 @@ function createHtmlReport(report) {
     .map((artifact) => `<tr>
   <td>${artifact.name}</td>
   <td>${artifact.path}</td>
+  <td>${artifact.required ? "yes" : "no"}</td>
   <td>${artifact.exists ? "yes" : "no"}</td>
   <td>${artifact.kind}</td>
   <td>${artifact.sizeBytes}</td>
@@ -126,7 +127,7 @@ function createHtmlReport(report) {
   <p class="${report.summary.warnings === 0 ? "ok" : "warn"}">Warnings: ${report.summary.warnings}</p>
   <h2>Artifacts</h2>
   <table>
-    <thead><tr><th>Name</th><th>Path</th><th>Exists</th><th>Kind</th><th>Size</th></tr></thead>
+    <thead><tr><th>Name</th><th>Path</th><th>Required</th><th>Exists</th><th>Kind</th><th>Size</th></tr></thead>
     <tbody>${artifactRows}</tbody>
   </table>
   <h2>Issues</h2>
@@ -163,24 +164,28 @@ async function main() {
       name: "Visual standalone app",
       path: visualStandalonePath,
       kind: "file",
+      required: false,
       ...(await pathInfo(visualStandalonePath))
     },
     {
       name: "Plugin standalone shell",
       path: productStandalonePath,
       kind: "file",
+      required: true,
       ...(await pathInfo(productStandalonePath))
     },
     {
       name: "VST3 bundle",
       path: vst3BundlePath,
       kind: "directory",
+      required: true,
       ...(await pathInfo(vst3BundlePath))
     },
     {
       name: "VST3 Windows binary",
       path: vst3BinaryPath,
       kind: "file",
+      required: true,
       ...(await pathInfo(vst3BinaryPath))
     }
   ];
@@ -190,13 +195,19 @@ async function main() {
       name: "Installed VST3 bundle",
       path: installedVst3Path,
       kind: "directory",
+      required: true,
       ...(await pathInfo(installedVst3Path))
     });
   }
 
   for (const artifact of artifacts) {
     if (!artifact.exists) {
-      errors.push(`Missing ${artifact.name}: ${artifact.path}`);
+      const message = `Missing ${artifact.required ? "required" : "optional"} ${artifact.name}: ${artifact.path}`;
+      if (artifact.required) {
+        errors.push(message);
+      } else {
+        warnings.push(message);
+      }
       continue;
     }
 
