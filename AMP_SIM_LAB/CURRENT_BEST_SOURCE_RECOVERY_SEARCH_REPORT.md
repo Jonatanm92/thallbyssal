@@ -102,6 +102,23 @@ Follow-up diagnostic output/headroom evidence:
   - `hard-ceiling` and `soft-ceiling` removed clipping but remained too mid/high-forward compared with the known-good beta.
 - This narrows the missing behavior further: the known-good beta likely contains product-specific output polish, EQ/headroom calibration, or a more specific A2 full-rig chain shape beyond simple gain plus limiter.
 
+Runtime evidence matrix added after the search:
+
+- Tool: `npm run lab:current-best:evidence`
+- Repo document: `AMP_SIM_LAB/CURRENT_BEST_RUNTIME_EVIDENCE_MATRIX.md`
+- Generated local reports:
+  - `D:\CodexBuilds\thallbyssal-lab\reports\current-best-runtime-evidence-matrix.json`
+  - `D:\CodexBuilds\thallbyssal-lab\reports\current-best-runtime-evidence-matrix.md`
+- Final stable 48 kHz generated-input target:
+  - peak mean: about `0.932767` linear
+  - RMS mean: about `0.475805` linear
+  - clipped samples: `0`
+
+Source recovery plan:
+
+- `AMP_SIM_LAB/CURRENT_BEST_A2_FULL_RIG_SOURCE_RECOVERY_PLAN.md`
+- This plan records the exact probe gap between the current Live V1 source probe and the known-good A2 full-rig runtime marker.
+
 ## What Was Not Found
 
 - No exact source root for the known-good beta.
