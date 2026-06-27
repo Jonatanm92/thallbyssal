@@ -453,6 +453,22 @@ test("branch safety validator allows internal report generator negative public-s
   assert.deepEqual(validation.errors, []);
 });
 
+test("branch safety validator allows release validator negative public-system guardrail text", () => {
+  const validation = validateBranchSafety({
+    changes: [
+      { status: "M", path: "AMP_SIM_LAB/test-harness/validate-release-artifacts.mjs", source: "branch" }
+    ],
+    fileTexts: new Map([
+      [
+        "AMP_SIM_LAB/test-harness/validate-release-artifacts.mjs",
+        "const forbidden = ['telemetry', 'analytics', 'checkout', 'DRM'];"
+      ]
+    ])
+  });
+
+  assert.deepEqual(validation.errors, []);
+});
+
 test("branch safety validator still blocks public-system implementation patterns inside internal generators", () => {
   const validation = validateBranchSafety({
     changes: [

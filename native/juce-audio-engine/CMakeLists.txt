@@ -16,9 +16,95 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(JUCE)
 
+option(THALLBYSSAL_ENABLE_NAM_RUNTIME "Enable local/private NeuralAmpModelerCore runtime probe targets" OFF)
+set(THALLBYSSAL_NAM_CORE_DIR "D:/CodexBuilds/thallbyssal-nam-runtime-probe/NeuralAmpModelerCore" CACHE PATH "External NeuralAmpModelerCore checkout")
+
 set(THALLBYSSAL_DSP_SOURCES
   Source/ThallLabDspEngine.cpp
 )
+
+if(THALLBYSSAL_ENABLE_NAM_RUNTIME)
+  if(EXISTS "${THALLBYSSAL_NAM_CORE_DIR}/NAM/get_dsp.h")
+    file(GLOB_RECURSE THALLBYSSAL_NAM_CORE_SOURCES CONFIGURE_DEPENDS
+      "${THALLBYSSAL_NAM_CORE_DIR}/NAM/*.cpp"
+      "${THALLBYSSAL_NAM_CORE_DIR}/NAM/*.c"
+    )
+
+    add_library(ThallbyssalNamCore OBJECT ${THALLBYSSAL_NAM_CORE_SOURCES})
+    target_compile_features(ThallbyssalNamCore PUBLIC cxx_std_20)
+    target_include_directories(ThallbyssalNamCore
+      PUBLIC
+        "${THALLBYSSAL_NAM_CORE_DIR}"
+        "${THALLBYSSAL_NAM_CORE_DIR}/Dependencies/eigen"
+        "${THALLBYSSAL_NAM_CORE_DIR}/Dependencies/nlohmann"
+    )
+    target_compile_definitions(ThallbyssalNamCore
+      PUBLIC
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        NAM_ENABLE_A2_FAST
+    )
+
+    add_library(ThallbyssalNamRuntimeAdapter OBJECT
+      Source/NamRuntimeAdapter.cpp
+    )
+    target_compile_features(ThallbyssalNamRuntimeAdapter PUBLIC cxx_std_20)
+    target_include_directories(ThallbyssalNamRuntimeAdapter
+      PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source"
+      PRIVATE
+        "${THALLBYSSAL_NAM_CORE_DIR}"
+        "${THALLBYSSAL_NAM_CORE_DIR}/Dependencies/eigen"
+        "${THALLBYSSAL_NAM_CORE_DIR}/Dependencies/nlohmann"
+    )
+    target_compile_definitions(ThallbyssalNamRuntimeAdapter
+      PUBLIC
+        THALLBYSSAL_HAS_NAM_RUNTIME=1
+    )
+
+    add_executable(ThallbyssalNamRuntimeProbe
+      Source/NamRuntimeProbeMain.cpp
+    )
+    target_compile_features(ThallbyssalNamRuntimeProbe PRIVATE cxx_std_20)
+    target_link_libraries(ThallbyssalNamRuntimeProbe
+      PRIVATE
+        ThallbyssalNamRuntimeAdapter
+        ThallbyssalNamCore
+    )
+
+    juce_add_console_app(ThallbyssalLiveV1Probe
+      PRODUCT_NAME "Thallbyssal Live V1 Probe"
+      COMPANY_NAME "Guitar Workflow Toolkit"
+      BUNDLE_ID "local.guitarworkflow.thallbyssal.livev1probe"
+    )
+
+    target_sources(ThallbyssalLiveV1Probe
+      PRIVATE
+        Source/ThallbyssalLiveV1ProbeMain.cpp
+        Source/ThallbyssalLiveV1NamChain.cpp
+    )
+
+    target_compile_definitions(ThallbyssalLiveV1Probe
+      PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+    )
+
+    target_link_libraries(ThallbyssalLiveV1Probe
+      PRIVATE
+        juce::juce_audio_formats
+        juce::juce_dsp
+        ThallbyssalNamRuntimeAdapter
+        ThallbyssalNamCore
+      PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags
+    )
+  else()
+    message(WARNING "THALLBYSSAL_ENABLE_NAM_RUNTIME is ON, but THALLBYSSAL_NAM_CORE_DIR does not point to NeuralAmpModelerCore: ${THALLBYSSAL_NAM_CORE_DIR}")
+  endif()
+endif()
 
 juce_add_gui_app(ThallLabAudioEngine
   PRODUCT_NAME "Thall Lab Audio Engine"

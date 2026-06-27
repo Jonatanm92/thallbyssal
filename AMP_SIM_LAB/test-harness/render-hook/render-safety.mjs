@@ -40,6 +40,7 @@ const publicSystemGuardrailSourcePaths = new Set([
   "AMP_SIM_LAB/test-harness/beta-readiness.test.mjs",
   "AMP_SIM_LAB/test-harness/generate-report-index.mjs",
   "AMP_SIM_LAB/test-harness/preset-validation.test.mjs",
+  "AMP_SIM_LAB/test-harness/validate-release-artifacts.mjs",
   "AMP_SIM_LAB/test-harness/validate-presets.mjs"
 ]);
 
