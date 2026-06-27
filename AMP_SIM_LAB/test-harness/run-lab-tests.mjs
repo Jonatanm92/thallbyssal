@@ -18,7 +18,8 @@ const tests = [
   "reference-feedback-plan.test.mjs",
   "reference-listening-pack.test.mjs",
   path.join("render-hook", "render-hook.test.mjs"),
-  path.join("source-parity", "current-best-source-parity.test.mjs")
+  path.join("source-parity", "current-best-source-parity.test.mjs"),
+  path.join("source-parity", "current-best-runtime-evidence.test.mjs")
 ];
 
 const result = spawnSync(process.execPath, ["--test", ...tests.map((testFile) => path.join(__dirname, testFile))], {
