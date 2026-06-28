@@ -20,6 +20,7 @@ Four local-only passes now exist:
 2. A2-manifest gain override probe: roughly level-aligned or slightly louder than the known-good Current Best baseline, but clips heavily and does not match the beta spectral balance.
 3. Diagnostic A2 output safety probe: removes clipping, but remains too mid/high-forward or too weak depending on safety mode.
 4. A2 full-rig recovery probe v0: adds nearby V2 center/side shaping and softclip evidence, but still remains too loud in RMS and too mid/high-forward compared with the known-good beta.
+5. A2 full-rig recovery probe v1 polish: adds a probe-only output polish/headroom hypothesis that materially reduces v0 mid/high excess without clipping, but still cannot claim direct parity because the previous known-good beta WAV cache is missing.
 
 This narrows the source recovery blocker: the missing Current Best gain staging is now partially identified, but the raw probe still lacks the product safety/output/polish behavior needed to match the known-good beta.
 
@@ -187,11 +188,60 @@ Interpretation:
 - The missing Current Best behavior is not explained by V2 center/side shaping and softclip alone.
 - The next recovery pass should focus on product polish/output filtering/headroom around the A2 full-rig path, not another standalone limiter.
 
+### A2 Full-Rig Recovery Probe v1 Polish
+
+This pass added `--probe-variant a2-full-rig-v1-polish` to the local-only `ThallbyssalLiveV1Probe`.
+
+It is a source recovery probe only. It does not change product DSP, plugin defaults, the known-good beta, NAM assets, or IR assets.
+
+Probe-only polish hypothesis:
+
+- Headroom trim: `-1.9 dB`.
+- Low-mid cut: `-2.2 dB @ 340 Hz Q 0.7`.
+- Mid cut: `-4.6 dB @ 1700 Hz Q 0.68`.
+- High shelf: `-5.8 dB @ 4200 Hz Q 0.707`.
+
+Renders:
+
+- Root: `D:\CodexBuilds\thallbyssal-lab\current-best-source-rehydration\a2-full-rig-v1-polish-20260628T230149`
+- Completed: `4/4`.
+- Clipped samples: `0`.
+- Gap report:
+  - `D:\CodexBuilds\thallbyssal-lab\reports\current-best-a2-v1-polish-gap.md`
+  - `D:\CodexBuilds\thallbyssal-lab\reports\current-best-a2-v1-polish-gap.json`
+
+Average v1-minus-v0 deltas:
+
+| Band | Average v1 - v0 |
+| --- | ---: |
+| RMS | `-4.50 dB` |
+| Low | `-3.29 dB` |
+| Low-mid | `-4.00 dB` |
+| Mid | `-5.17 dB` |
+| High | `-5.72 dB` |
+
+Estimated v1-minus-known-good-beta deltas:
+
+| Band | Estimated v1 - known-good beta |
+| --- | ---: |
+| RMS | `-0.48 dB` |
+| Low | `-2.35 dB` |
+| Low-mid | `-0.67 dB` |
+| Mid | `+1.27 dB` |
+| High | `+1.39 dB` |
+
+Interpretation:
+
+- V1 polish materially reduces the v0 excess in mid and high bands without reintroducing clipping.
+- The result is a better diagnostic recovery direction than v0 by measurement.
+- The low band may now be under the old known-good beta estimate, so direct comparison is required before any listening or integration decision.
+- The previous known-good beta WAV cache is missing, so the estimated v1-to-beta values are not a strict parity result.
+
 ## Conclusion
 
-The source-built recovery probe is not source-parity with the known-good Current Best beta.
+The source-built recovery probe is not yet source-parity with the known-good Current Best beta.
 
-The previous full-file versus 6-second duration mismatch has been removed. The first windowed pass proved the older Live V1 probe gain staging is far too quiet. The A2-manifest gain override pass proved the missing high-level gain direction is real, but it also proved that directly applying those gains in the raw Live V1 probe is unsafe: it clips tens of thousands of samples and overstates mid/high energy relative to the known-good beta. The diagnostic output safety pass removed clipping in all tested variants, but it did not recover the known-good beta balance. The A2 full-rig recovery v0 pass added the nearest known V2 center/side and softclip evidence, but still measured much too loud and too mid/high-forward.
+The previous full-file versus 6-second duration mismatch has been removed. The first windowed pass proved the older Live V1 probe gain staging is far too quiet. The A2-manifest gain override pass proved the missing high-level gain direction is real, but it also proved that directly applying those gains in the raw Live V1 probe is unsafe: it clips tens of thousands of samples and overstates mid/high energy relative to the known-good beta. The diagnostic output safety pass removed clipping in all tested variants, but it did not recover the known-good beta balance. The A2 full-rig recovery v0 pass added the nearest known V2 center/side and softclip evidence, but still measured much too loud and too mid/high-forward. The A2 v1 polish pass materially reduced that mid/high excess by measurement, but strict parity is blocked until the missing known-good beta WAV cache is restored or regenerated for direct comparison.
 
 The remaining blocker is no longer "unknown level mismatch." It is now narrower:
 
@@ -217,7 +267,7 @@ Recover or reconstruct the actual Current Best product chain/settings used by th
 
 The next source task should focus on:
 
-1. Reconstruct the A2 full-rig Current Best probe separately from the older Live V1 probe.
-2. Add source-probe support for the known Current Best output safety/headroom stage before any listening or install attempt.
-3. Re-run `npm run lab:source-parity` after the source path represents the actual Current Best chain, not only the Live V1 recovery probe.
-4. Decide whether the source parity tool should support a separate "metrics only" mode for sample-rate-mismatched but duration-matched comparisons, while keeping strict parity claims blocked unless sample rates also match.
+1. Restore or regenerate the exact known-good beta render set.
+2. Run direct `a2-full-rig-v1-polish` versus known-good beta measurement.
+3. Only if direct measurement is close, decide whether a probe v2 needs low-band recovery without increasing mid/high excess.
+4. Keep strict parity claims blocked unless the source and known-good beta renders are directly comparable.

@@ -13,7 +13,8 @@ public:
         enum class ProbeVariant
         {
             liveV1,
-            a2FullRigRecoveryV0
+            a2FullRigRecoveryV0,
+            a2FullRigRecoveryV1Polish
         };
 
         juce::File bigBottomModel;

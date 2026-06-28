@@ -52,6 +52,54 @@ Risk flags from the measurement-only report:
 - This confirms that the missing source behavior is not another standalone limiter.
 - The next recovery step should isolate product output polish/headroom filtering around the A2 full-rig path.
 
+## Diagnostic A2 v1 Polish Probe
+
+The follow-up diagnostic probe added a separate `a2-full-rig-v1-polish` variant to `ThallbyssalLiveV1Probe`.
+
+This is still source-recovery tooling only. It is not routed into `PluginProcessor`, not installed over the known-good beta, and not approved for owner listening.
+
+Probe-only polish hypothesis:
+
+- Headroom trim: `-1.9 dB`.
+- Low-mid cut: `-2.2 dB @ 340 Hz Q 0.7`.
+- Mid cut: `-4.6 dB @ 1700 Hz Q 0.68`.
+- High shelf: `-5.8 dB @ 4200 Hz Q 0.707`.
+
+Generated local-only reports:
+
+- `D:\CodexBuilds\thallbyssal-lab\reports\current-best-a2-v1-polish-gap.json`
+- `D:\CodexBuilds\thallbyssal-lab\reports\current-best-a2-v1-polish-gap.md`
+
+Average v1-minus-v0 deltas across rendered pairs:
+
+| Band | Average v1 - v0 |
+| --- | ---: |
+| RMS | `-4.50 dB` |
+| Low 0-120 Hz | `-3.29 dB` |
+| Low-mid 120-500 Hz | `-4.00 dB` |
+| Mid 500-4000 Hz | `-5.17 dB` |
+| High 4000+ Hz | `-5.72 dB` |
+
+Estimated v1-minus-known-good-beta deltas, derived from the previous v0 gap report plus fresh v1-minus-v0 measurements:
+
+| Band | Estimated v1 - known-good beta |
+| --- | ---: |
+| RMS | `-0.48 dB` |
+| Low 0-120 Hz | `-2.35 dB` |
+| Low-mid 120-500 Hz | `-0.67 dB` |
+| Mid 500-4000 Hz | `+1.27 dB` |
+| High 4000+ Hz | `+1.39 dB` |
+
+Per-file estimated v1-minus-known-good-beta gaps:
+
+| File | RMS | Low | Low-mid | Mid | High | V1 clips |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| DI Boostalizer | `-0.75 dB` | `-2.57 dB` | `-0.92 dB` | `+1.22 dB` | `+2.36 dB` | `0` |
+| Pick Attack | `+0.25 dB` | `-1.91 dB` | `+0.02 dB` | `+1.43 dB` | `+0.82 dB` | `0` |
+| Low Tuned Chugs | `-0.95 dB` | `-2.56 dB` | `-1.11 dB` | `+1.17 dB` | `+0.98 dB` | `0` |
+
+Important caveat: the previous known-good beta WAV cache is currently missing from `D:\CodexBuilds`, so the v1-to-beta values above are estimates, not direct render comparisons. Strict source parity still requires restored or regenerated known-good beta renders from the exact approved beta build.
+
 ## Boundaries
 
 - Product DSP touched by this report: no.
@@ -64,6 +112,6 @@ Risk flags from the measurement-only report:
 
 ## Next Safe Task
 
-Before any playable install, implement only a diagnostic probe hypothesis for the missing A2 output polish/headroom stage and compare it with `npm run lab:source-parity` plus `npm run lab:source-polish-gap`.
+Before any playable install, restore or regenerate the exact known-good beta render set and run a direct v1-polish versus beta comparison.
 
-Do not route that hypothesis into `PluginProcessor`, do not install it over the known-good beta, and do not ask for owner listening until the mid/high excess is materially reduced by measurement without clipping or non-finite samples.
+Do not route the v1-polish hypothesis into `PluginProcessor`, do not install it over the known-good beta, and do not ask for owner listening until direct measurement confirms the source path is close enough without clipping or non-finite samples.

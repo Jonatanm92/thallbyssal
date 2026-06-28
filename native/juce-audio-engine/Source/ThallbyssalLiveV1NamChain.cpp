@@ -154,6 +154,17 @@ double softClipV2Sample(double input)
     return std::tanh(input * drive) / normaliser;
 }
 
+bool isA2RecoveryVariant(ThallbyssalLiveV1NamChain::Config::ProbeVariant variant)
+{
+    return variant == ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV0
+        || variant == ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV1Polish;
+}
+
+bool isA2PolishVariant(ThallbyssalLiveV1NamChain::Config::ProbeVariant variant)
+{
+    return variant == ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV1Polish;
+}
+
 bool checkFile(const juce::File& file, const char* label, juce::String& error)
 {
     if (file.existsAsFile())
@@ -322,6 +333,8 @@ void applyProbeVariantOverride(const juce::StringPairArray& overrides,
     const auto text = overrideValue(overrides, "probeVariant").trim().toLowerCase();
     if (text == "a2-full-rig-v0" || text == "a2fullrigrecoveryv0")
         value = ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV0;
+    else if (text == "a2-full-rig-v1-polish" || text == "a2fullrigrecoveryv1polish")
+        value = ThallbyssalLiveV1NamChain::Config::ProbeVariant::a2FullRigRecoveryV1Polish;
     else if (text == "live-v1" || text == "livev1")
         value = ThallbyssalLiveV1NamChain::Config::ProbeVariant::liveV1;
 }
@@ -388,6 +401,12 @@ struct ThallbyssalLiveV1NamChain::Impl
     Biquad centerPick;
     Biquad sideHighPass;
     Biquad sidePick;
+    Biquad leftPolishLowMid;
+    Biquad leftPolishMid;
+    Biquad leftPolishHigh;
+    Biquad rightPolishLowMid;
+    Biquad rightPolishMid;
+    Biquad rightPolishHigh;
 
     std::vector<double> input;
     std::vector<double> pre;
@@ -418,13 +437,19 @@ struct ThallbyssalLiveV1NamChain::Impl
         bldogHigh = makeHighShelf(sampleRate, 3.0, 4300.0, 0.707);
         hlbstMid = makePeak(sampleRate, 2.0, 1200.0, 0.9);
         hlbstHigh = makeHighShelf(sampleRate, 2.0, 4300.0, 0.707);
-        const auto a2Recovery = config.probeVariant == Config::ProbeVariant::a2FullRigRecoveryV0;
+        const auto a2Recovery = isA2RecoveryVariant(config.probeVariant);
         centerMid = makePeak(sampleRate, a2Recovery ? 1.65 : 1.5, 1400.0, 0.9);
         sideMid = makePeak(sampleRate, a2Recovery ? 1.65 : 1.5, 1400.0, 0.9);
         centerBody = makePeak(sampleRate, 1.15, 260.0, 0.75);
         centerPick = makePeak(sampleRate, 0.75, 2350.0, 1.1);
         sideHighPass = makeHighPass(sampleRate, 95.0, 0.707);
         sidePick = makePeak(sampleRate, 0.45, 2350.0, 1.1);
+        leftPolishLowMid = makePeak(sampleRate, -2.2, 340.0, 0.7);
+        rightPolishLowMid = makePeak(sampleRate, -2.2, 340.0, 0.7);
+        leftPolishMid = makePeak(sampleRate, -4.6, 1700.0, 0.68);
+        rightPolishMid = makePeak(sampleRate, -4.6, 1700.0, 0.68);
+        leftPolishHigh = makeHighShelf(sampleRate, -5.8, 4200.0, 0.707);
+        rightPolishHigh = makeHighShelf(sampleRate, -5.8, 4200.0, 0.707);
     }
 
     bool runNam(thallbyssal::NamRuntimeAdapter& adapter, int numSamples, juce::String& error)
@@ -666,7 +691,9 @@ bool ThallbyssalLiveV1NamChain::process(const float* monoInput,
     const auto bldogGain = decibelsToGain(impl->config.bldogGainDb);
     const auto edgeGain = decibelsToGain(impl->config.edgeGainDb);
     const auto finalGain = decibelsToGain(impl->config.finalGainDb);
-    const auto a2Recovery = impl->config.probeVariant == Config::ProbeVariant::a2FullRigRecoveryV0;
+    const auto a2Recovery = isA2RecoveryVariant(impl->config.probeVariant);
+    const auto a2Polish = isA2PolishVariant(impl->config.probeVariant);
+    const auto polishHeadroom = decibelsToGain(-1.9);
 
     for (int sample = 0; sample < numSamples; ++sample)
     {
@@ -699,6 +726,17 @@ bool ThallbyssalLiveV1NamChain::process(const float* monoInput,
         {
             left = softClipV2Sample(left);
             right = softClipV2Sample(right);
+        }
+
+        if (a2Polish)
+        {
+            left = impl->leftPolishLowMid.process(left);
+            left = impl->leftPolishMid.process(left);
+            left = impl->leftPolishHigh.process(left) * polishHeadroom;
+
+            right = impl->rightPolishLowMid.process(right);
+            right = impl->rightPolishMid.process(right);
+            right = impl->rightPolishHigh.process(right) * polishHeadroom;
         }
 
         if (!std::isfinite(left) || !std::isfinite(right))

@@ -34,7 +34,8 @@ This pass adds a narrow NAM-runtime source recovery probe. It does not claim Cur
 - Added probe-only A2 full-rig recovery variant:
   - `--probe-variant live-v1`
   - `--probe-variant a2-full-rig-v0`
-  The default remains `live-v1`. The A2 v0 variant is a source-recovery hypothesis only and is not routed into the plugin.
+  - `--probe-variant a2-full-rig-v1-polish`
+  The default remains `live-v1`. The A2 variants are source-recovery hypotheses only and are not routed into the plugin.
 
 ## Safety Boundaries
 
@@ -141,6 +142,37 @@ A2 full-rig recovery probe v0:
   - Low Tuned Chugs: RMS `+2.72 dB`, low-mid `+2.09 dB`, high `+6.54 dB`.
 - Caveat: A2 v0 confirms that nearby V2 center/side and softclip evidence is still insufficient. The probe remains much too mid/high-forward and too loud in RMS compared with the known-good beta even after clipping is removed.
 
+A2 full-rig recovery probe v1 polish:
+
+- Build target: `ThallbyssalLiveV1Probe`.
+- Output executable: `D:\CodexBuilds\thallbyssal-source-rehydration-nam\ThallbyssalLiveV1Probe_artefacts\Release\ThallbyssalLiveV1Probe.exe`.
+- Variant flag: `--probe-variant a2-full-rig-v1-polish`.
+- Render root:
+  - `D:\CodexBuilds\thallbyssal-lab\current-best-source-rehydration\a2-full-rig-v1-polish-20260628T230149`
+- Generated gap reports:
+  - `D:\CodexBuilds\thallbyssal-lab\reports\current-best-a2-v1-polish-gap.json`
+  - `D:\CodexBuilds\thallbyssal-lab\reports\current-best-a2-v1-polish-gap.md`
+- Compared DIs:
+  - `DI Boostalizer.wav`
+  - `PICK ATTACK.wav`
+  - `low_tuned_chugs.wav`
+  - `noise_floor_test.wav`
+- Completed renders: `4/4`.
+- V1 clipped samples: `0` on all rendered files.
+- Average v1-minus-v0 deltas:
+  - RMS `-4.50 dB`
+  - Low `-3.29 dB`
+  - Low-mid `-4.00 dB`
+  - Mid `-5.17 dB`
+  - High `-5.72 dB`
+- Estimated v1-minus-known-good-beta deltas:
+  - RMS `-0.48 dB`
+  - Low `-2.35 dB`
+  - Low-mid `-0.67 dB`
+  - Mid `+1.27 dB`
+  - High `+1.39 dB`
+- Caveat: the known-good beta WAV cache used by the previous direct gap report is missing, so v1-minus-known-good-beta deltas are estimates derived from the old v0-minus-beta report plus fresh v1-minus-v0 measurements. Strict parity remains blocked until the known-good beta renders are restored or regenerated.
+
 ## What This Proves
 
 - The local NeuralAmpModelerCore checkout can be found by CMake.
@@ -153,6 +185,7 @@ A2 full-rig recovery probe v0:
 - The recovered Live V1 probe can now test diagnostic output safety hypotheses around the high-gain A2 region without changing product behavior.
 - The recovered Live V1 probe can now run a separate A2 full-rig recovery hypothesis without changing the default probe path or product behavior.
 - A2 v0 proves that V2-style center/side shaping plus softclip is not enough to recover Current Best parity.
+- A2 v1 polish proves that targeted output polish/headroom filtering can materially reduce the v0 mid/high excess without clipping in the probe.
 
 ## What This Does Not Prove
 
@@ -165,7 +198,8 @@ A2 full-rig recovery probe v0:
 - It does not make directly applied A2-manifest gain values safe; the local A2-gain pass clipped heavily, which indicates missing Current Best output safety/headroom behavior.
 - It does not prove that a simple limiter, peak normalizer, or ceiling stage is enough to recover the known-good Current Best product chain.
 - It does not prove that the A2 v0 recovery formula is suitable for owner listening or playable beta installation.
+- It does not prove that the A2 v1 polish formula has strict parity, because the known-good beta WAV cache is missing and current beta deltas are estimated rather than directly measured.
 
 ## Next Safe Step
 
-Continue reconstructing the actual Current Best A2 full-rig chain before integrating any NAM source into `PluginProcessor`. The diagnostic safety and A2 v0 passes narrowed the blocker: the missing behavior is not only level safety or V2 center/side shaping, but also the product polish/EQ/headroom calibration that keeps the known-good beta loud without becoming clipped, overly bright, or mid-forward.
+Restore or regenerate the exact known-good beta render set, then directly compare `a2-full-rig-v1-polish` against that beta before integrating any NAM source into `PluginProcessor`. The v1 polish pass is closer by measurement estimate, but strict source parity remains blocked until direct beta renders exist again.
