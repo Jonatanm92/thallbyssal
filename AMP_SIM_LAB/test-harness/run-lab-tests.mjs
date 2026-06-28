@@ -19,6 +19,7 @@ const tests = [
   "reference-listening-pack.test.mjs",
   path.join("render-hook", "render-hook.test.mjs"),
   path.join("source-parity", "current-best-output-polish-gap.test.mjs"),
+  path.join("source-parity", "current-best-known-good-beta-recovery.test.mjs"),
   path.join("source-parity", "current-best-source-parity.test.mjs"),
   path.join("source-parity", "current-best-runtime-evidence.test.mjs")
 ];
