@@ -4,7 +4,7 @@ AMP_SIM_LAB is the internal factory around Thallbyssal. It accelerates testing, 
 
 Core rule: **the founder owns the sound. The factory owns test automation, reports, preset validation, demo generation, beta packaging, and validation assets.**
 
-Generated: 2026-06-03T10:29:59.225Z
+Generated: 2026-06-29T15:22:10.239Z
 
 Generated output root: `D:\CodexBuilds\thallbyssal-lab`
 
@@ -14,15 +14,15 @@ DI input folder: `D:\CodexBuilds\thallbyssal-lab\di-test-files`
 
 | Area | Status |
 | --- | --- |
-| Current build status | Pass with 2 warning(s). Artifacts: Visual standalone app, Plugin standalone shell, VST3 bundle, VST3 Windows binary, Installed VST3 bundle. |
+| Current build status | Pass with 3 warning(s). Artifacts: Plugin standalone shell, VST3 bundle, VST3 Windows binary, Installed VST3 bundle. |
 | Current audio engine version | package.json 0.1.0 / native 0.1.0 |
 | Plugin format targets | Windows Standalone, Windows VST3. AU/macOS later. AAX later. |
 | Test coverage status | Lab structure, harness unit tests, WAV metrics, DI validation, audition matrix, preset validation, beta-pack placeholder, and release artifact validation are automated. React/domain tests remain separate. |
 | Preset count | 9 internal placeholder preset(s). Preset validation: Pass with 9 warning(s). |
-| DI validation status | Starter ready: yes. Matched 3/3. Errors: 0. Warnings: 4. |
+| DI validation status | Starter ready: yes. Matched 3/3. Errors: 0. Warnings: 3. |
 | Audition matrix status | Planned jobs: 14. Blocked jobs: 0. Skipped presets: 0. |
 | Render hook status | real-render. Attempted: 14. Succeeded: 14. Failed: 0. Blocked: 0. Dry-run: 0. Clipping count: 0. |
-| Regression baseline status | Compared 14 job(s); render success changes: 0. |
+| Regression baseline status | Compared 1 job(s); render success changes: 0. |
 | Render demo status | 3 founder-owned WAV file(s) found. Headless render: real-render. |
 | Beta readiness status | Docs-only beta pack placeholder: yes. Contains plugin binary: no. Telemetry: no. Checkout/licensing: no. |
 | Automated private beta validation | Ready: yes. Blockers: 0. Warnings: 3. Public release ready: no. |
