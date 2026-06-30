@@ -1,0 +1,74 @@
+name: Build Thallbyssal
+
+on:
+  push:
+    branches: [ "ui-procedural-knobs", "codex/current-best-source-parity-lock", "main" ]
+  pull_request:
+    branches: [ "codex/current-best-source-parity-lock", "main" ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+  PROJECT_DIR: native/juce-audio-engine
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+          - os: macos-latest
+            name: macOS
+          # Linux is intentionally omitted: JUCE 8.0.13's juce_dsp SIMD code
+          # does not compile on Linux LP64 (int64_t == long). Windows/macOS
+          # (int64_t == long long) build fine.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download ASIO SDK (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://download.steinberg.net/sdk_downloads/asiosdk_2.3.3_2019-06-14.zip" -OutFile asiosdk.zip
+          Expand-Archive -Path asiosdk.zip -DestinationPath asiosdk -Force
+
+      - name: Configure (Windows, with ASIO)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >
+          cmake -B ${{ env.PROJECT_DIR }}/build -S ${{ env.PROJECT_DIR }}
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DTHALLBYSSAL_ENABLE_ASIO=ON
+          "-DASIO_SDK_DIR=${{ github.workspace }}/asiosdk/asiosdk_2.3.3_2019-06-14"
+
+      - name: Configure (macOS)
+        if: runner.os == 'macOS'
+        run: cmake -B ${{ env.PROJECT_DIR }}/build -S ${{ env.PROJECT_DIR }} -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build GUI app + plugin
+        run: >
+          cmake --build ${{ env.PROJECT_DIR }}/build --config ${{ env.BUILD_TYPE }} --parallel
+          --target ThallLabAudioEngine Thallbyssal_Standalone Thallbyssal_VST3
+
+      - name: Upload Thall Lab Audio Engine (standalone GUI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThallLabAudioEngine-${{ matrix.name }}
+          if-no-files-found: warn
+          path: |
+            ${{ env.PROJECT_DIR }}/build/ThallLabAudioEngine_artefacts/${{ env.BUILD_TYPE }}/**
+
+      - name: Upload Thallbyssal plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: Thallbyssal-${{ matrix.name }}
+          if-no-files-found: warn
+          path: |
+            ${{ env.PROJECT_DIR }}/build/Thallbyssal_artefacts/${{ env.BUILD_TYPE }}/VST3/**
+            ${{ env.PROJECT_DIR }}/build/Thallbyssal_artefacts/${{ env.BUILD_TYPE }}/Standalone/**

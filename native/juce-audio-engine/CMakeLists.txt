@@ -19,6 +19,12 @@ FetchContent_MakeAvailable(JUCE)
 option(THALLBYSSAL_ENABLE_NAM_RUNTIME "Enable local/private NeuralAmpModelerCore runtime probe targets" OFF)
 set(THALLBYSSAL_NAM_CORE_DIR "D:/CodexBuilds/thallbyssal-nam-runtime-probe/NeuralAmpModelerCore" CACHE PATH "External NeuralAmpModelerCore checkout")
 
+# Opt-in low-latency ASIO support (Windows). Needs the Steinberg ASIO SDK; CI
+# downloads it and passes the path in. Off by default so the project builds
+# anywhere without the SDK.
+option(THALLBYSSAL_ENABLE_ASIO "Build Windows targets with ASIO support" OFF)
+set(ASIO_SDK_DIR "" CACHE PATH "Path to the Steinberg ASIO SDK")
+
 set(THALLBYSSAL_DSP_SOURCES
   Source/ThallLabDspEngine.cpp
 )
@@ -159,22 +165,26 @@ target_compile_definitions(ThallLabAudioEngine
     JUCE_APPLICATION_VERSION_STRING="${PROJECT_VERSION}"
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_ASIO=1
 )
 
 target_compile_definitions(Thallbyssal
   PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_ASIO=1
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
 
-if(TARGET Thallbyssal_Standalone)
-  target_compile_definitions(Thallbyssal_Standalone
-    PRIVATE
-      JUCE_ASIO=1
-  )
+# ASIO (Windows) — opt-in. Adds the define + SDK include path to the targets
+# that open audio devices. No-op unless THALLBYSSAL_ENABLE_ASIO is set with a
+# valid ASIO_SDK_DIR.
+if(THALLBYSSAL_ENABLE_ASIO AND ASIO_SDK_DIR)
+  message(STATUS "Thallbyssal: ASIO enabled, SDK at ${ASIO_SDK_DIR}")
+  foreach(asio_target ThallLabAudioEngine Thallbyssal Thallbyssal_Standalone)
+    if(TARGET ${asio_target})
+      target_compile_definitions(${asio_target} PRIVATE JUCE_ASIO=1)
+      target_include_directories(${asio_target} PRIVATE "${ASIO_SDK_DIR}/common")
+    endif()
+  endforeach()
 endif()
 
 target_compile_definitions(ThallbyssalOfflineRenderer
