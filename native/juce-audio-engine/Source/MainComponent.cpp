@@ -23,9 +23,11 @@ void MainComponent::AmpSimLookAndFeel::drawRotarySlider(juce::Graphics& g,
     const auto angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
     const auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
 
-    g.setColour(juce::Colour(0xff02050a).withAlpha(0.60f));
+    // soft drop shadow
+    g.setColour(juce::Colour(0xff02050a).withAlpha(0.62f));
     g.fillEllipse(knob.translated(0.0f, 3.0f).expanded(4.0f));
 
+    // tick ring
     for (int tick = 0; tick <= 10; ++tick)
     {
         const auto tickAngle = rotaryStartAngle + (static_cast<float>(tick) / 10.0f) * (rotaryEndAngle - rotaryStartAngle);
@@ -37,6 +39,7 @@ void MainComponent::AmpSimLookAndFeel::drawRotarySlider(juce::Graphics& g,
         g.drawLine(inner.x, inner.y, outer.x, outer.y, tick % 5 == 0 ? 1.6f : 1.0f);
     }
 
+    // value track + glowing fill arc
     juce::Path track;
     track.addCentredArc(centre.x, centre.y, radius + 5.0f, radius + 5.0f, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
     g.setColour(juce::Colour(0xff182331));
@@ -44,36 +47,54 @@ void MainComponent::AmpSimLookAndFeel::drawRotarySlider(juce::Graphics& g,
 
     juce::Path arc;
     arc.addCentredArc(centre.x, centre.y, radius + 5.0f, radius + 5.0f, 0.0f, rotaryStartAngle, angle, true);
+    g.setColour(accent.withAlpha(0.25f));
+    g.strokePath(arc, juce::PathStrokeType(8.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded)); // glow
     g.setColour(accent);
     g.strokePath(arc, juce::PathStrokeType(5.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff3b4656),
-                                           knob.getX(),
-                                           knob.getY(),
-                                           juce::Colour(0xff05070b),
-                                           knob.getRight(),
-                                           knob.getBottom(),
-                                           false));
+    // beveled metal rim
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff5b6878), knob.getX(), knob.getY(),
+                                           juce::Colour(0xff0d1117), knob.getRight(), knob.getBottom(), false));
     g.fillEllipse(knob);
-    g.setColour(juce::Colour(0xff8795a7).withAlpha(0.34f));
-    g.drawEllipse(knob.reduced(0.5f), 1.6f);
-    g.setColour(juce::Colour(0xff05070b).withAlpha(0.42f));
-    g.drawEllipse(knob.reduced(radius * 0.18f), 5.0f);
 
-    g.setColour(juce::Colour(0xff0a0f15).withAlpha(0.55f));
-    g.fillEllipse(knob.reduced(radius * 0.34f));
-    g.setColour(accent.withAlpha(0.18f));
-    g.fillEllipse(knob.reduced(radius * 0.41f));
+    // brushed cap
+    const auto cap = knob.reduced(radius * 0.16f);
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff3b4654), cap.getX(), cap.getY(),
+                                           juce::Colour(0xff0b0e13), cap.getRight(), cap.getBottom(), false));
+    g.fillEllipse(cap);
 
+    // faint concentric brushing
+    g.setColour(juce::Colour(0xff8795a7).withAlpha(0.05f));
+    for (float rr = radius * 0.78f; rr > radius * 0.22f; rr -= 3.0f)
+        g.drawEllipse(juce::Rectangle<float>(rr * 2.0f, rr * 2.0f).withCentre(centre), 0.6f);
+
+    // bevel highlight + inner shadow
+    g.setColour(juce::Colours::white.withAlpha(0.10f));
+    g.drawEllipse(cap.reduced(1.0f), 1.4f);
+    g.setColour(juce::Colour(0xff05070b).withAlpha(0.55f));
+    g.drawEllipse(cap.reduced(radius * 0.30f), 4.0f);
+
+    // dark centre well with a hint of accent
+    g.setColour(juce::Colour(0xff0a0f15).withAlpha(0.6f));
+    g.fillEllipse(knob.reduced(radius * 0.62f));
+    g.setColour(accent.withAlpha(0.16f));
+    g.fillEllipse(knob.reduced(radius * 0.70f));
+
+    // indicator + glowing tip
     juce::Path pointer;
-    const auto pointerLength = radius * 0.72f;
-    const auto pointerThickness = juce::jmax(2.0f, radius * 0.09f);
-    pointer.addRoundedRectangle(-pointerThickness * 0.5f, -pointerLength, pointerThickness, pointerLength * 0.62f, pointerThickness * 0.5f);
+    const auto pointerLength = radius * 0.78f;
+    const auto pointerThickness = juce::jmax(2.5f, radius * 0.12f);
+    pointer.addRoundedRectangle(-pointerThickness * 0.5f, -pointerLength, pointerThickness, pointerLength * 0.56f, pointerThickness * 0.5f);
     pointer.applyTransform(juce::AffineTransform::rotation(angle).translated(centre.x, centre.y));
     g.setColour(juce::Colour(0xfff8fafc));
     g.fillPath(pointer);
-    g.setColour(accent.withAlpha(0.52f));
-    g.fillEllipse(knob.reduced(radius * 0.48f));
+
+    const auto tip = juce::Point<float>(centre.x + std::cos(angle - juce::MathConstants<float>::halfPi) * (radius * 0.6f),
+                                        centre.y + std::sin(angle - juce::MathConstants<float>::halfPi) * (radius * 0.6f));
+    g.setColour(accent.withAlpha(0.55f));
+    g.fillEllipse(juce::Rectangle<float>(9.0f, 9.0f).withCentre(tip));
+    g.setColour(accent.brighter(0.6f));
+    g.fillEllipse(juce::Rectangle<float>(4.5f, 4.5f).withCentre(tip));
 
     if (slider.isMouseOverOrDragging())
     {
@@ -374,7 +395,7 @@ MainComponent::MainComponent()
     applyNativeTonePreset("vild-standard-rhythm");
     setAudioChannels(2, 2);
     updateEngineFromUi();
-    startTimerHz(6);
+    startTimerHz(30);
     setSize(1320, 980);
 }
 
