@@ -4,6 +4,27 @@ Rules for Codex agents working in the Thallbyssal / Guitar Workflow Toolkit repo
 
 This repo may have many agents working in parallel. Keep changes small, isolated, and reviewable.
 
+## Agent Orchestration Standard
+
+`AGENTS.md` is the canonical rule source for every AI agent working in this repo.
+
+All agent-specific entry files must point back here instead of duplicating the full policy:
+
+- `CLAUDE.md` - Claude Code entrypoint.
+- `program.md` - current objective, metrics, boundaries, lanes, and stop conditions.
+- `docs/AI_AGENT_ORCHESTRATION_SETUP.md` - practical multi-agent setup guide.
+
+Default startup for every new agent session:
+
+1. Read `AGENTS.md`.
+2. Read `program.md`.
+3. Inspect `git status --short --branch`.
+4. Pick one narrow safe task or stop at an owner gate.
+
+Karpathy-style macro delegation is allowed for safe work only: delegate whole docs/tooling/testing tasks, not protected sound changes.
+
+Durable agent rules must be backed by tests or explicit evidence. The lab governance tests must fail if these standard entry files are missing or stop pointing to `AGENTS.md`.
+
 ## Prime Directive
 
 The founder owns the sound.
