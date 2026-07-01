@@ -5,6 +5,7 @@
 - Installer and uninstaller are placeholders until packaging is finalized.
 - Supported OS/DAW list is a private beta placeholder, not a public compatibility claim.
 - Offline render automation is not connected yet.
+- Strict Current Best source parity is blocked until the exact known-good beta baseline WAV evidence is restored or a new founder-approved baseline is recorded.
 - VST3 manifest generation is disabled for development builds because of Windows path/build stability.
 - No checkout, licensing server, DRM, telemetry, analytics, auth, or cloud sync exists.
 - DAW coverage is not complete.

@@ -17,6 +17,7 @@ Placeholder:
 - `PRIVATE_BETA_LISTENING_PAGE.md`
 - `BETA_FEEDBACK_QUESTIONS.md`
 - `BETA_LISTENING_INSTRUCTIONS.md`
+- `PLAYABLE_BETA_SMOKE_TEST.md`
 - `BETA_PACK_MANIFEST.json`
 - Optional beta binary only if founder-approved build notes explicitly include one.
 
@@ -31,7 +32,8 @@ Use these placeholder steps only with the private build notes supplied for the b
 5. Open the DAW and run a plugin rescan.
 6. Test on a copied dry DI guitar track in a non-critical session.
 7. Start with DAW/plugin output low, then raise level gradually.
-8. If scan or audio fails, stop and fill out the bug report template in `FEEDBACK_FORM.md`.
+8. Run `PLAYABLE_BETA_SMOKE_TEST.md` before judging tone.
+9. If scan or audio fails, stop and fill out the bug report template in `FEEDBACK_FORM.md`.
 
 Do not move, rename, normalize, render over, or delete original DI files while testing.
 
@@ -60,6 +62,7 @@ There is no public release yet, and this placeholder matrix is not a compatibili
 
 - Installer and uninstaller are placeholders until packaging is finalized.
 - DAW coverage is not complete.
+- Strict source parity is blocked until the exact known-good beta baseline WAV evidence is restored or a new baseline is explicitly approved.
 - Some DAWs may require manual plugin rescans or cache clearing.
 - CPU use, scan behavior, and preset output levels may change between private beta builds.
 - Private beta feedback is manual only; the packet does not collect usage, crash, system, audio, session, or personal data automatically.

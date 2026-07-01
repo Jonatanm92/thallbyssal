@@ -21,6 +21,14 @@ The readiness report is written to:
 D:\CodexBuilds\thallbyssal-lab\reports\beta-readiness.html
 ```
 
+Before judging the sound, run the smoke checklist:
+
+```text
+AMP_SIM_LAB\beta-pack\PLAYABLE_BETA_SMOKE_TEST.md
+```
+
+If the plugin shows a fallback/missing asset warning, if the wrong input feeds the amp, or if hard hits clip constantly at normal output, stop tone testing and report that as a beta blocker first.
+
 ## Installation Instructions Placeholder
 
 Use these placeholder instructions only after the founder provides a private beta build, founder-approved private link, build-specific install path, and build notes. If the private build notes disagree with this packet, stop and ask the founder before installing.
@@ -68,6 +76,7 @@ This packet does not claim support for any public release platform or DAW. There
 - Installer and uninstaller are placeholders until packaging is finalized.
 - Supported OS/DAW list is a private beta placeholder, not a public compatibility claim.
 - VST3 manifest handling is development-only until release packaging is finalized.
+- Strict Current Best source parity is blocked until exact known-good beta render evidence is restored or a new baseline is explicitly approved.
 - No checkout, licensing, auth, telemetry, analytics, cloud sync, or DRM exists yet.
 - Offline render automation is not connected for beta tester use.
 - Some DAWs may require manual plugin rescans or cache clearing.
