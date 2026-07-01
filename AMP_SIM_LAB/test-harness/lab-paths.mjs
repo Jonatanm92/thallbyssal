@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,8 +18,31 @@ export const diInputDir =
 export const betaPackDistRoot = path.join(generatedRoot, "beta-pack", "dist");
 export const betaPackPackageRoot = path.join(betaPackDistRoot, "thallbyssal-private-beta-placeholder");
 
-export const nativeBuildDir =
-  process.env.THALLBYSSAL_NATIVE_BUILD_DIR ||
-  (process.platform === "win32"
-    ? "D:\\CodexBuilds\\thallbyssal-native"
-    : path.join(repoRoot, "native", "juce-audio-engine", "build"));
+function resolveNativeBuildDir() {
+  if (process.env.THALLBYSSAL_NATIVE_BUILD_DIR) {
+    return process.env.THALLBYSSAL_NATIVE_BUILD_DIR;
+  }
+
+  if (process.platform !== "win32") {
+    return path.join(repoRoot, "native", "juce-audio-engine", "build");
+  }
+
+  const defaultBuildDir = "D:\\CodexBuilds\\thallbyssal-native";
+  const cachePath = path.join(defaultBuildDir, "CMakeCache.txt");
+
+  if (fs.existsSync(cachePath)) {
+    const cacheText = fs.readFileSync(cachePath, "utf8");
+    const match = cacheText.match(/^CMAKE_HOME_DIRECTORY:INTERNAL=(.+)$/m);
+    const cachedSource = match?.[1]?.replaceAll("\\", "/");
+    const currentSource = path.join(repoRoot, "native", "juce-audio-engine").replaceAll("\\", "/");
+
+    if (cachedSource && cachedSource !== currentSource) {
+      const safeRepoName = path.basename(repoRoot).replaceAll(/[^A-Za-z0-9._-]/g, "-");
+      return `D:\\CodexBuilds\\${safeRepoName}-native`;
+    }
+  }
+
+  return defaultBuildDir;
+}
+
+export const nativeBuildDir = resolveNativeBuildDir();

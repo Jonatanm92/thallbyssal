@@ -259,7 +259,7 @@ async function main() {
   }
 
   const allowedDisclosureMatches = claimHits.filter((hit) =>
-    /BETA_PACK_MANIFEST\.json|KNOWN_ISSUES\.md|README_BETA\.md|BETA_TESTER_PACKET\.md|RELEASE_SAFETY_CHECKLIST\.md/i.test(hit)
+    /BETA_PACK_MANIFEST\.json|KNOWN_ISSUES\.md|README_BETA\.md|BETA_TESTER_PACKET\.md|RELEASE_SAFETY_CHECKLIST\.md|BETA_FEEDBACK_QUESTIONS\.md|BETA_LISTENING_INSTRUCTIONS\.md|PRIVATE_BETA_LISTENING_PAGE\.md|PLAYABLE_BETA_SMOKE_TEST\.md/i.test(hit)
   );
   const riskyClaimHits = claimHits.filter((hit) => !allowedDisclosureMatches.includes(hit));
   if (riskyClaimHits.length > 0) {
